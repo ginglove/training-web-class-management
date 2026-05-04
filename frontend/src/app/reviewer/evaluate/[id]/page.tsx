@@ -105,7 +105,7 @@ export default function ReviewerEvaluatePage({ params }: { params: Promise<{ id:
           <p className="text-slate-500 font-medium">Booking này có thể đã được xử lý hoặc không hợp lệ.</p>
         </div>
         <Button 
-          variant="outline" 
+          variant="ghost" 
           onClick={() => router.push('/reviewer/pending')}
           className="rounded-2xl px-10 py-6 border-slate-200 text-slate-600 font-black text-[11px] uppercase tracking-widest hover:bg-slate-50"
         >

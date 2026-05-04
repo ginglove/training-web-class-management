@@ -169,7 +169,7 @@ export default function BookingsPage() {
                 Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để khám phá các yêu cầu khác.
               </p>
             </div>
-            <Button onClick={() => {setSearch(''); setStatusFilter('ALL');}} variant="outline" className="h-14 px-8 rounded-2xl border-2 border-slate-900 font-black text-[10px] uppercase tracking-widest active:scale-95">
+            <Button onClick={() => {setSearch(''); setStatusFilter('ALL');}} variant="ghost" className="h-14 px-8 rounded-2xl border-2 border-slate-900 font-black text-[10px] uppercase tracking-widest active:scale-95">
                Xóa tất cả bộ lọc
             </Button>
           </div>

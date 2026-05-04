@@ -351,7 +351,7 @@ export default function BookingDetailPage() {
                     
                     {role === 'CREATOR' && ['DRAFT', 'PENDING_REVIEW'].includes(status) && (
                       <Button 
-                        variant="outline" 
+                        variant="ghost" 
                         onClick={() => handleAction('cancel', { reason: note })} 
                         isLoading={actionLoading}
                         className="w-full py-7 flex justify-center items-center gap-4 rounded-[2rem] border-2 border-slate-100 text-rose-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition-all shadow-sm font-black text-[12px] uppercase tracking-[0.3em]"

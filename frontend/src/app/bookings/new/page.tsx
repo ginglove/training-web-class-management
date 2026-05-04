@@ -418,7 +418,7 @@ export default function NewBookingPage() {
 
               <div className="flex justify-between pt-12 border-t border-slate-50">
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   onClick={prevStep} 
                   className="h-14 px-10 rounded-2xl border-2 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50"
                 >
@@ -510,7 +510,7 @@ export default function NewBookingPage() {
 
               <div className="flex justify-between pt-12 border-t border-slate-50 relative z-10">
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   onClick={prevStep} 
                   disabled={loading}
                   className="h-14 px-10 rounded-2xl border-2 font-black text-[10px] uppercase tracking-widest"
