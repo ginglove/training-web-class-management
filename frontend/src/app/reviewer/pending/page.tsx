@@ -38,7 +38,7 @@ export default function ReviewerPendingPage() {
 
   const handleClaim = async (id: string) => {
     try {
-      await fetchApi(\`/api/bookings/\${id}/claim\`, { method: 'PATCH' });
+      await fetchApi(`/api/bookings/${id}/claim`, { method: 'PATCH' });
       toast.success('Đã nhận hồ sơ thành công!');
       loadBookings();
     } catch (err: any) {

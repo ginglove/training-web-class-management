@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Input } from '@/components/ui/Input';
 import { fetchApi } from '@/lib/api';
 import { 
   Search, 

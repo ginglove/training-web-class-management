@@ -71,6 +71,12 @@ The system is configured to deploy effortlessly to Vercel as a unified monorepo.
 > **⚠️ Serverless Architecture Note:**
 > Since this is deployed using Vercel Functions, the microservices are technically "Stateless Functions". In-memory states (like SSE registries in the notification service) will behave differently than in a persistent server. The system is designed to handle this by using the database as the source of truth, but SSE connections will periodically reconnect.
 
+> **💡 Vercel Deployment Note:**
+> During deployment, you may see a warning: *"Due to builds existing in your configuration file, the Build and Development Settings... will not apply"*. This is **expected** and safe to ignore, as the `vercel.json` file is intentionally used to orchestrate the multi-service build.
+
+> **🛡️ Security Patch:**
+> The frontend has been upgraded to **Next.js 15.1.7** to address CVE-2025-66478.
+
 ---
 
 ## 🧪 Software Testing Training Guide

@@ -9,7 +9,7 @@ import { vi } from 'date-fns/locale';
 import { 
   ShieldCheck, ArrowRight, User, Calendar, MapPin, 
   CheckCircle2, XCircle, Info, MessageCircle, Clock, 
-  CheckCircle, Sparkles, Gavel, ArrowUpRight
+  CheckCircle, Sparkles, Gavel, ArrowUpRight, RefreshCcw
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
@@ -129,14 +129,14 @@ export default function ApproverPendingPage() {
                   </div>
                   
                   <div className="w-full space-y-4 relative z-10">
-                    <Link href={\`/approver/evaluate/\${b.id}\`} className="block">
+                    <Link href={`/approver/evaluate/${b.id}`} className="block">
                       <button className="w-full py-5 bg-emerald-600 text-white font-black text-[11px] uppercase tracking-[0.25em] rounded-[1.5rem] shadow-2xl shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.03] active:scale-95 transition-all flex items-center justify-center gap-3">
                         <CheckCircle className="w-5 h-5 fill-white" />
                         <span>Phê duyệt hồ sơ</span>
                       </button>
                     </Link>
                     
-                    <Link href={\`/bookings/\${b.id}\`} className="inline-flex items-center gap-2.5 text-[10px] font-black text-slate-400 hover:text-emerald-600 uppercase tracking-[0.2em] transition-all group/link">
+                    <Link href={`/bookings/${b.id}`} className="inline-flex items-center gap-2.5 text-[10px] font-black text-slate-400 hover:text-emerald-600 uppercase tracking-[0.2em] transition-all group/link">
                       <span>Kiểm tra toàn diện</span>
                       <ArrowUpRight className="w-3.5 h-3.5 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform" />
                     </Link>

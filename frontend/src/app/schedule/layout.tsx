@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 export default function ScheduleLayout({ children }: { children: React.ReactNode }) {

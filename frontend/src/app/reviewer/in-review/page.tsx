@@ -34,7 +34,6 @@ export default function ReviewerInReviewPage() {
   React.useEffect(() => {
     loadBookings();
   }, [loadBookings]);
-
   return (
     <div className="max-w-6xl mx-auto space-y-12 pb-24">
       {/* Header Section */}
@@ -129,14 +128,14 @@ export default function ReviewerInReviewPage() {
                   </div>
                   
                   <div className="w-full space-y-4 relative z-10">
-                    <Link href={\`/reviewer/evaluate/\${b.id}\`} className="block">
+                    <Link href={`/reviewer/evaluate/${b.id}`} className="block">
                       <button className="w-full py-5 bg-primary text-white font-black text-[11px] uppercase tracking-[0.25em] rounded-[1.5rem] shadow-2xl shadow-primary/30 hover:scale-[1.03] active:scale-95 transition-all flex items-center justify-center gap-3">
                         <Forward className="w-5 h-5 fill-white" />
                         <span>Tiếp tục Xử lý</span>
                       </button>
                     </Link>
                     
-                    <Link href={\`/bookings/\${b.id}\`} className="inline-flex items-center gap-2.5 text-[10px] font-black text-slate-400 hover:text-primary uppercase tracking-[0.2em] transition-all group/link">
+                    <Link href={`/bookings/${b.id}`} className="inline-flex items-center gap-2.5 text-[10px] font-black text-slate-400 hover:text-primary uppercase tracking-[0.2em] transition-all group/link">
                       <span>Xem chi tiết hồ sơ</span>
                       <ArrowUpRight className="w-3.5 h-3.5 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform" />
                     </Link>
