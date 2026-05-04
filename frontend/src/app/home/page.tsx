@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchApi } from '@/lib/api';
+import { safeFormat } from '@/lib/date-utils';
 import { 
   Clock, 
   CheckCircle2, 
@@ -29,7 +30,6 @@ import {
   MapPin
 } from 'lucide-react';
 import Link from 'next/link';
-import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -149,12 +149,11 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-0.5">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Hôm nay</p>
-            <p className="text-xl font-black text-slate-800 tracking-tight mt-1">{format(new Date(), 'EEEE, dd/MM/yyyy', { locale: vi })}</p>
+            <p className="text-xl font-black text-slate-800 tracking-tight mt-1">{safeFormat(new Date(), 'EEEE, dd/MM/yyyy')}</p>
           </div>
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {loading ? (
           [1,2,3,4].map(i => <div key={i} className="h-32 bg-white rounded-[2.5rem] animate-pulse border border-slate-100 shadow-sm" />)
@@ -172,9 +171,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-        {/* Recent Activity */}
         <div className="lg:col-span-8 space-y-8">
           <div className="flex justify-between items-center px-4">
             <div className="flex items-center gap-3">
@@ -209,7 +206,7 @@ export default function DashboardPage() {
                           <span>{b.class_name}</span>
                           <span className="text-slate-200 mx-1">•</span>
                           <Clock className="w-3.5 h-3.5 text-primary" />
-                          <span>{format(new Date(b.date), 'dd/MM/yyyy')} • {b.slot_name}</span>
+                          <span>{safeFormat(b.date, 'dd/MM/yyyy')} • {b.slot_name}</span>
                         </div>
                       </div>
                     </div>
@@ -243,7 +240,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div className="lg:col-span-4 space-y-12">
           <div className="space-y-8">
             <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase px-4">Thao tác nhanh</h2>
@@ -252,46 +248,27 @@ export default function DashboardPage() {
                 <Link key={i} href={action.href}>
                   <button className={cn(
                     "w-full p-6 rounded-[2.5rem] flex items-center justify-between transition-all active:scale-[0.97] group border shadow-2xl overflow-hidden relative",
-                    action.primary 
-                      ? "bg-primary border-primary shadow-primary/30 text-white hover:bg-primary-dark" 
-                      : "bg-white border-slate-100 shadow-slate-200/20 text-slate-600 hover:border-primary/30"
+                    action.primary ? "bg-primary border-primary shadow-primary/30 text-white hover:bg-primary-dark" : "bg-white border-slate-100 shadow-slate-200/20 text-slate-600 hover:border-primary/30"
                   )}>
                     <div className="flex items-center gap-6 relative z-10">
-                      <div className={cn(
-                        "w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all duration-500",
-                        action.primary ? "bg-white/20 group-hover:rotate-12" : "bg-slate-50 group-hover:bg-primary/5 group-hover:rotate-12"
-                      )}>
+                      <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all duration-500", action.primary ? "bg-white/20 group-hover:rotate-12" : "bg-slate-50 group-hover:bg-primary/5 group-hover:rotate-12")}>
                         <action.icon className={cn("w-7 h-7", action.primary ? "text-white" : "text-primary")} />
                       </div>
                       <span className="font-black text-sm uppercase tracking-[0.2em]">{action.label}</span>
                     </div>
                     <ChevronRight className={cn("w-5 h-5 relative z-10 opacity-30 group-hover:opacity-100 group-hover:translate-x-1 transition-all", action.primary ? "text-white" : "text-primary")} />
-                    {action.primary && (
-                      <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-1000" />
-                    )}
+                    {action.primary && <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-1000" />}
                   </button>
                 </Link>
               ))}
             </div>
           </div>
-
           <Card className="p-10 rounded-[3rem] bg-slate-900 border-none relative overflow-hidden group">
-            <div className="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity">
-               <ShieldCheck className="w-40 h-40 text-white" />
-            </div>
+            <div className="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity"><ShieldCheck className="w-40 h-40 text-white" /></div>
             <div className="space-y-6 relative z-10">
-              <div className="flex items-center gap-3 text-primary">
-                 <Zap className="w-5 h-5 fill-primary" />
-                 <h3 className="font-black text-sm uppercase tracking-[0.2em]">Trung tâm trợ giúp</h3>
-              </div>
-              <p className="text-xs text-slate-400 font-bold leading-relaxed">
-                Hệ thống Class Booking v4.0 được thiết kế để tối ưu hóa quy trình quản lý phòng học. 
-                Nếu gặp khó khăn, vui lòng xem hướng dẫn chi tiết hoặc liên hệ bộ phận hỗ trợ IT.
-              </p>
-              <button className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3 group/btn">
-                <span>Xem tài liệu hướng dẫn</span>
-                <ChevronRight className="w-4 h-4 opacity-30 group-hover/btn:translate-x-1 group-hover/btn:opacity-100 transition-all" />
-              </button>
+              <div className="flex items-center gap-3 text-primary"><Zap className="w-5 h-5 fill-primary" /><h3 className="font-black text-sm uppercase tracking-[0.2em]">Trung tâm trợ giúp</h3></div>
+              <p className="text-xs text-slate-400 font-bold leading-relaxed">Hệ thống Class Booking v4.0 được thiết kế để tối ưu hóa quy trình quản lý phòng học. Nếu gặp khó khăn, vui lòng xem hướng dẫn chi tiết hoặc liên hệ bộ phận hỗ trợ IT.</p>
+              <button className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3 group/btn"><span>Xem tài liệu hướng dẫn</span><ChevronRight className="w-4 h-4 opacity-30 group-hover/btn:translate-x-1 group-hover/btn:opacity-100 transition-all" /></button>
             </div>
           </Card>
         </div>

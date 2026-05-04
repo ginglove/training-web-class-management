@@ -1,4 +1,5 @@
 const pool = require('../db');
+const { addLog } = require('../utils/booking-helpers');
 const bcrypt = require('bcrypt');
 
 // GET /admin/users
@@ -152,7 +153,7 @@ async function cancelBooking(req, res, next) {
     );
     if (!rows.length) return res.status(404).json({ error: 'Booking not found' });
 
-    await addLog({ bookingId: id, actorId: req.user.sub, fromStatus: rows[0].status, toStatus: 'CANCELLED', comment: reason || 'Cancelled by Admin' });
+    await addLog(pool, { bookingId: id, actorId: req.user.sub, fromStatus: rows[0].status, toStatus: 'CANCELLED', comment: reason || 'Cancelled by Admin' });
 
     res.json({ message: 'Booking cancelled by Admin' });
   } catch (err) { next(err); }

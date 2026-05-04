@@ -103,7 +103,20 @@ Instructors can use this application to teach:
 ---
 
 ## 🎨 Design System
-The frontend implements a custom **Neumorphism** (Soft UI) design system:
-- **Palette**: Cool Slate Gray background (`#e2e8f0`) with Electric Teal accents (`#0d9488`).
-- **Styling**: Utilizes heavy inner and drop shadows to create a "pressed" or "extruded" physical button feel.
-- **Animations**: Powered by `framer-motion` for smooth page transitions and micro-interactions.
+
+The application features a cutting-edge **Neu-Brutalism** design system, combining the tactile feel of Neumorphism with high-contrast, bold aesthetics:
+
+- **Premium Aesthetics**: Vibrant accent colors, high-contrast borders, and deep shadow tokens for a premium "physical" interface.
+- **Micro-interactions**: Sophisticated `framer-motion` animations for smooth state transitions and tactile feedback.
+- **Responsive Layouts**: Optimized for both high-end desktop monitoring and mobile-first administrative tasks.
+- **Localized Experience**: Fully localized in Vietnamese for administrative and operational clarity.
+
+---
+
+## 🛠️ Key Application Modules
+
+1. **Dashboard Hub**: Real-time KPI cards and status tracking for all user roles.
+2. **Booking Lifecycle**: Comprehensive workflow from draft creation to final audit approval.
+3. **My Bookings**: Enhanced tracking with multi-view toggles (Grid/Table) and advanced search.
+4. **Notifications**: Persistent real-time alerts with persistent read/unread state management.
+5. **Profile & Security**: Centralized identity management with active session tracking.

@@ -100,6 +100,10 @@ export default function AdminUsersPage() {
   };
 
   const handleToggleStatus = async (user: any) => {
+    if (user.id === currentUser?.id) {
+      toast.error('Bạn không thể tự khóa tài khoản của chính mình! 🚫');
+      return;
+    }
     const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
       await fetchApi(`/api/admin/users/${user.id}`, {

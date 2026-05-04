@@ -1,4 +1,5 @@
 const pool = require('../db');
+const { addLog } = require('../utils/booking-helpers');
 const NOTIF_URL = process.env.NOTIF_SERVICE_URL || 'http://localhost:8013';
 
 // Helper: send notification via HTTP to notification-service
@@ -10,15 +11,6 @@ async function notify(payload) {
       body: JSON.stringify(payload),
     });
   } catch { /* non-critical */ }
-}
-
-// Helper: add booking log entry
-async function addLog(client, { bookingId, actorId, fromStatus, toStatus, comment }) {
-  await client.query(
-    `INSERT INTO booking_logs (booking_id, actor_id, from_status, to_status, comment)
-     VALUES ($1,$2,$3,$4,$5)`,
-    [bookingId, actorId, fromStatus, toStatus, comment]
-  );
 }
 
 // GET /bookings
@@ -355,10 +347,11 @@ async function getStats(req, res, next) {
     const userId = req.user.sub;
     const role   = req.user.role;
 
-    let stats = {};
+    let query = '';
+    let params = [];
 
     if (role === 'CREATOR') {
-      const { rows } = await pool.query(`
+      query = `
         SELECT
           COUNT(*) FILTER (WHERE status = 'DRAFT')            AS draft,
           COUNT(*) FILTER (WHERE status IN ('PENDING_REVIEW', 'IN_REVIEW', 'PENDING_APPROVAL')) AS processing,
@@ -366,41 +359,44 @@ async function getStats(req, res, next) {
           COUNT(*)                                            AS total
         FROM bookings
         WHERE creator_id = $1
-      `, [userId]);
-      stats = rows[0];
+      `;
+      params = [userId];
     } else if (role === 'REVIEWER') {
-      const { rows } = await pool.query(`
+      query = `
         SELECT
           COUNT(*) FILTER (WHERE status = 'PENDING_REVIEW')   AS pending,
           COUNT(*) FILTER (WHERE status = 'IN_REVIEW' AND reviewer_id = $1) AS in_review,
           COUNT(*) FILTER (WHERE (status = 'PENDING_APPROVAL' OR status = 'REJECTED') AND reviewer_id = $1 AND updated_at >= CURRENT_DATE) AS processed_today,
           COUNT(*)                                            AS total
         FROM bookings
-      `, [userId]);
-      stats = rows[0];
+      `;
+      params = [userId];
     } else if (role === 'APPROVER') {
-      const { rows } = await pool.query(`
+      query = `
         SELECT
           COUNT(*) FILTER (WHERE status = 'PENDING_APPROVAL') AS pending,
           COUNT(*) FILTER (WHERE status = 'APPROVED' AND approver_id = $1 AND approved_at >= CURRENT_DATE) AS approved_today,
           COUNT(*) FILTER (WHERE status = 'REJECTED' AND approver_id = $1 AND updated_at >= CURRENT_DATE) AS rejected_today,
           COUNT(*)                                            AS total
         FROM bookings
-      `);
-      stats = rows[0];
+      `;
+      params = [userId];
     } else if (role === 'ADMIN') {
-      const { rows } = await pool.query(`
+      query = `
         SELECT
           COUNT(*) FILTER (WHERE status = 'PENDING_REVIEW')   AS pending_review,
           COUNT(*) FILTER (WHERE status = 'PENDING_APPROVAL') AS pending_approval,
           COUNT(*) FILTER (WHERE status = 'APPROVED')         AS approved,
           COUNT(*)                                            AS total
         FROM bookings
-      `);
-      stats = rows[0];
+      `;
+      params = [];
     }
 
-    res.json(stats);
+    if (!query) return res.json({});
+
+    const { rows } = await pool.query(query, params);
+    res.json(rows[0] || {});
   } catch (err) { next(err); }
 }
 

@@ -20,6 +20,7 @@ import {
   ChevronRight,
   MonitorPlay,
   Save,
+  Home,
   Zap,
   ArrowUpRight,
   Gavel

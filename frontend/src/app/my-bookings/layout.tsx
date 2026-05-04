@@ -1,6 +1,10 @@
 import * as React from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 
-export default function ChangePasswordLayout({ children }: { children: React.ReactNode }) {
+export default function MyBookingsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return <AppLayout>{children}</AppLayout>;
 }

@@ -4,136 +4,169 @@ import { fetchApi } from '@/lib/api';
 export interface Notification {
   id: string;
   user_id: string;
-  booking_id: string | null;
+  booking_id?: string;
   type: string;
   title: string;
   message: string;
   is_read: boolean;
   created_at: string;
+  read_at?: string;
 }
 
 interface NotificationState {
   notifications: Notification[];
   unreadCount: number;
   loading: boolean;
-  setNotifications: (notifications: Notification[]) => void;
-  addNotification: (notification: Notification) => void;
+  error: string | null;
+  
+  // Actions
   fetchNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
+  clearReadNotifications: () => Promise<void>;
+  
+  // Internal
+  initialize: (userId: string) => void;
+  cleanup: () => void;
 }
+
+let eventSource: EventSource | null = null;
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
   loading: false,
-
-  setNotifications: (notifications) => {
-    const unreadCount = notifications.filter(n => !n.is_read).length;
-    set({ notifications, unreadCount });
-  },
-
-  addNotification: (notification) => {
-    const current = get().notifications;
-    // Prepend to list
-    const updated = [notification, ...current].slice(0, 100); // Keep last 100
-    const unreadCount = updated.filter(n => !n.is_read).length;
-    set({ notifications: updated, unreadCount });
-  },
+  error: null,
 
   fetchNotifications: async () => {
     set({ loading: true });
     try {
       const response = await fetchApi('/api/notifications');
-      const data = response.data || [];
-      const unreadCount = response.unread || 0;
-      set({ notifications: data, unreadCount, loading: false });
+      set({ 
+        notifications: response.data || [], 
+        unreadCount: response.unread || 0,
+        loading: false 
+      });
     } catch (err) {
-      console.error('Failed to fetch notifications', err);
-      set({ loading: false });
+      set({ error: 'Không thể tải thông báo', loading: false });
     }
   },
 
-  markAsRead: async (id) => {
-    // 1. Optimistic Update
-    const currentNotifications = get().notifications;
-    const currentUnreadCount = get().unreadCount;
-    
-    const target = currentNotifications.find(n => n.id === id);
-    if (!target || target.is_read) return;
+  markAsRead: async (id: string) => {
+    const originalNotifications = get().notifications;
+    const originalUnread = get().unreadCount;
 
-    const optimisticUpdated = currentNotifications.map(n => 
-      n.id === id ? { ...n, is_read: true } : n
-    );
-    
-    set({ 
-      notifications: optimisticUpdated, 
-      unreadCount: Math.max(0, currentUnreadCount - 1)
+    // Optimistic Update
+    set({
+      notifications: originalNotifications.map(n => 
+        n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
+      ),
+      unreadCount: Math.max(0, originalUnread - 1)
     });
 
-    // 2. Call API
     try {
       await fetchApi(`/api/notifications/${id}/read`, { method: 'PATCH' });
     } catch (err) {
-      // 3. Rollback on Error
-      console.error('Failed to mark notification as read, rolling back', err);
-      set({ 
-        notifications: currentNotifications, 
-        unreadCount: currentUnreadCount 
-      });
+      // Rollback
+      set({ notifications: originalNotifications, unreadCount: originalUnread });
+      throw err;
     }
   },
 
   markAllAsRead: async () => {
-    // 1. Optimistic Update
-    const currentNotifications = get().notifications;
-    const currentUnreadCount = get().unreadCount;
+    const originalNotifications = get().notifications;
+    const originalUnread = get().unreadCount;
 
-    if (currentUnreadCount === 0) return;
+    // Optimistic Update
+    set({
+      notifications: originalNotifications.map(n => ({ ...n, is_read: true })),
+      unreadCount: 0
+    });
 
-    const optimisticUpdated = currentNotifications.map(n => ({ ...n, is_read: true }));
-    set({ notifications: optimisticUpdated, unreadCount: 0 });
-
-    // 2. Call API
     try {
       await fetchApi('/api/notifications/read-all', { method: 'PATCH' });
     } catch (err) {
-      // 3. Rollback on Error
-      console.error('Failed to mark all as read, rolling back', err);
-      set({ 
-        notifications: currentNotifications, 
-        unreadCount: currentUnreadCount 
-      });
+      // Rollback
+      set({ notifications: originalNotifications, unreadCount: originalUnread });
+      throw err;
     }
   },
 
-  deleteNotification: async (id) => {
-    // 1. Optimistic Update
-    const currentNotifications = get().notifications;
-    const currentUnreadCount = get().unreadCount;
-    
-    const target = currentNotifications.find(n => n.id === id);
-    if (!target) return;
+  deleteNotification: async (id: string) => {
+    const originalNotifications = get().notifications;
+    const originalUnread = get().unreadCount;
+    const notification = originalNotifications.find(n => n.id === id);
 
-    const optimisticUpdated = currentNotifications.filter(n => n.id !== id);
-    
-    set({ 
-      notifications: optimisticUpdated, 
-      unreadCount: target.is_read ? currentUnreadCount : Math.max(0, currentUnreadCount - 1)
+    // Optimistic Update
+    set({
+      notifications: originalNotifications.filter(n => n.id !== id),
+      unreadCount: notification && !notification.is_read ? originalUnread - 1 : originalUnread
     });
 
-    // 2. Call API
     try {
       await fetchApi(`/api/notifications/${id}`, { method: 'DELETE' });
     } catch (err) {
-      // 3. Rollback on Error
-      console.error('Failed to delete notification, rolling back', err);
-      set({ 
-        notifications: currentNotifications, 
-        unreadCount: currentUnreadCount 
-      });
-      throw err; // Allow UI to catch and show toast
+      // Rollback
+      set({ notifications: originalNotifications, unreadCount: originalUnread });
+      throw err;
+    }
+  },
+
+  clearReadNotifications: async () => {
+    const originalNotifications = get().notifications;
+    
+    // Optimistic Update
+    set({
+      notifications: originalNotifications.filter(n => !n.is_read)
+    });
+
+    try {
+      await fetchApi('/api/notifications/read', { method: 'DELETE' });
+    } catch (err) {
+      // Rollback
+      set({ notifications: originalNotifications });
+      throw err;
+    }
+  },
+
+  initialize: (userId: string) => {
+    if (eventSource) return;
+    
+    get().fetchNotifications();
+
+    const url = new URL('/api/notifications/stream', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8013');
+    url.searchParams.append('userId', userId);
+    
+    eventSource = new EventSource(url.toString());
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'NOTIFICATION') {
+        set(state => ({
+          notifications: [data.notification, ...state.notifications],
+          unreadCount: data.unreadCount ?? (state.unreadCount + 1)
+        }));
+      }
+
+      if (data.type === 'READ_COUNT_UPDATED') {
+        set({ unreadCount: data.unreadCount });
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource?.close();
+      eventSource = null;
+      // Exponential backoff or simple retry
+      setTimeout(() => get().initialize(userId), 5000);
+    };
+  },
+
+  cleanup: () => {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
     }
   }
 }));

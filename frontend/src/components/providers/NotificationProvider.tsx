@@ -9,46 +9,74 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { user, token } = useAuthStore();
   const { fetchNotifications, addNotification } = useNotificationStore();
   const eventSourceRef = React.useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const connectSSE = React.useCallback(() => {
+    if (!user || !token) return;
+
+    // Clean up existing
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    const url = `/api/notifications/stream?userId=${user.id}`;
+    console.log('📡 Connecting to SSE:', url);
+    
+    const es = new EventSource(url);
+
+    es.onopen = () => {
+      console.log('✅ SSE Connected');
+    };
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📩 SSE Message:', data);
+        
+        if (data.type === 'NOTIFICATION') {
+          addNotification(data.notification);
+          toast.success(data.notification.title, {
+            icon: '🔔',
+            duration: 5000,
+          });
+        }
+      } catch (err) {
+        console.error('❌ Failed to parse SSE message', err);
+      }
+    };
+
+    es.onerror = (err) => {
+      console.error('⚠️ SSE Error (Connection might have dropped):', err);
+      es.close();
+      
+      // Attempt reconnection after 5 seconds
+      reconnectTimeoutRef.current = setTimeout(() => {
+        console.log('🔄 Attempting to reconnect SSE...');
+        connectSSE();
+      }, 5000);
+    };
+
+    eventSourceRef.current = es;
+  }, [user, token, addNotification]);
 
   React.useEffect(() => {
     if (user && token) {
-      // Fetch existing
       fetchNotifications();
-
-      // Connect SSE
-      // Note: EventSource doesn't support custom headers easily, 
-      // but our backend checks query param userId. 
-      // In a real app we'd use token and verify on backend.
-      const url = `/api/notifications/stream?userId=${user.id}`;
-      const es = new EventSource(url);
-
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'NOTIFICATION') {
-            addNotification(data.notification);
-            toast.success(data.notification.title, {
-              icon: '🔔',
-              duration: 5000,
-            });
-          }
-        } catch (err) {
-          console.error('Failed to parse SSE message', err);
-        }
-      };
-
-      es.onerror = (err) => {
-        console.error('SSE Error:', err);
-        es.close();
-      };
-
-      eventSourceRef.current = es;
+      connectSSE();
 
       return () => {
-        es.close();
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+        }
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
       };
     }
-  }, [user, token, fetchNotifications, addNotification]);
+  }, [user, token, fetchNotifications, connectSSE]);
 
   return <>{children}</>;
 }

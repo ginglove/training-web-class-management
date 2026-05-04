@@ -35,7 +35,8 @@ pool.on('error', (err) => console.error('DB pool error:', err));
 // In-memory SSE client registry: Map<userId, Response[]>
 const sseClients = new Map();
 
-function sendSSE(userId, data) {
+function sendSSE(rawUserId, data) {
+  const userId = String(rawUserId);
   const clients = sseClients.get(userId) || [];
   const payload = `data: ${JSON.stringify(data)}\n\n`;
   clients.forEach(res => { try { res.write(payload); } catch {} });
@@ -43,12 +44,11 @@ function sendSSE(userId, data) {
 
 app.get('/health', (_, res) => res.json({ status: 'ok', service: 'notification-service' }));
 
-// Vercel Serverless Function Timeout Caveat: SSE connections will drop when the function times out (10s to 60s).
 // GET /api/notifications/stream — SSE endpoint
 app.get('/api/notifications/stream', (req, res) => {
-  // Try extracting userId from query string first since EventSource does not allow custom headers easily
-  const userId = req.query.userId || req.headers['x-user-id'];
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  const rawUserId = req.query.userId || req.headers['x-user-id'];
+  if (!rawUserId) return res.status(401).json({ error: 'Unauthorized' });
+  const userId = String(rawUserId);
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -59,7 +59,7 @@ app.get('/api/notifications/stream', (req, res) => {
   sseClients.get(userId).push(res);
 
   // Send connected event
-  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', message: 'SSE connected' })}\n\n`);
+  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', message: 'SSE connected', userId })}\n\n`);
 
   req.on('close', () => {
     const updated = (sseClients.get(userId) || []).filter(r => r !== res);
@@ -72,33 +72,64 @@ app.get('/api/notifications/stream', (req, res) => {
 app.get('/api/notifications', requireAuth, async (req, res) => {
   const userId = req.user.id;
   const { rows } = await pool.query(
-    `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+    `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
     [userId]
   );
-  const unread = rows.filter(n => !n.is_read).length;
-  res.json({ data: rows, unread });
+  const unreadCount = rows.filter(n => !n.is_read).length;
+  res.json({ data: rows, unread: unreadCount });
 });
 
 // PATCH /api/notifications/:id/read
 app.patch('/api/notifications/:id/read', requireAuth, async (req, res) => {
   const userId = req.user.id;
-  await pool.query(
-    `UPDATE notifications SET is_read = TRUE WHERE id = $1 AND user_id = $2`,
+  const { rowCount } = await pool.query(
+    `UPDATE notifications SET is_read = TRUE, read_at = NOW() WHERE id = $1 AND user_id = $2`,
     [req.params.id, userId]
   );
+  
+  if (rowCount > 0) {
+    const { rows } = await pool.query(`SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = FALSE`, [userId]);
+    const unreadCount = parseInt(rows[0].count);
+    sendSSE(userId, { type: 'READ_COUNT_UPDATED', unreadCount });
+  }
+  
   res.json({ message: 'Marked as read' });
+});
+
+// DELETE /api/notifications/read
+app.delete('/api/notifications/read', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  await pool.query(`DELETE FROM notifications WHERE user_id = $1 AND is_read = TRUE`, [userId]);
+  res.json({ message: 'Read notifications cleared' });
+});
+
+// DELETE /api/notifications/:id
+app.delete('/api/notifications/:id', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const { rowCount } = await pool.query(
+    `DELETE FROM notifications WHERE id = $1 AND user_id = $2`,
+    [req.params.id, userId]
+  );
+
+  if (rowCount > 0) {
+    const { rows } = await pool.query(`SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = FALSE`, [userId]);
+    const unreadCount = parseInt(rows[0].count);
+    sendSSE(userId, { type: 'READ_COUNT_UPDATED', unreadCount });
+  }
+
+  res.json({ message: 'Notification deleted' });
 });
 
 // PATCH /api/notifications/read-all
 app.patch('/api/notifications/read-all', requireAuth, async (req, res) => {
   const userId = req.user.id;
-  await pool.query(`UPDATE notifications SET is_read = TRUE WHERE user_id = $1`, [userId]);
+  await pool.query(`UPDATE notifications SET is_read = TRUE, read_at = NOW() WHERE user_id = $1 AND is_read = FALSE`, [userId]);
+  sendSSE(userId, { type: 'READ_COUNT_UPDATED', unreadCount: 0 });
   res.json({ message: 'All marked as read' });
 });
 
 // POST /api/notifications/internal — called by booking-service (internal only)
 app.post('/api/notifications/internal', async (req, res) => {
-  // In production, we'd want to secure this internal endpoint (e.g., via an internal secret token)
   const { user_id, booking_id, type, title, message } = req.body;
   if (!user_id || !type || !title || !message)
     return res.status(400).json({ error: 'user_id, type, title, message required' });
@@ -109,8 +140,11 @@ app.post('/api/notifications/internal', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,
       [user_id, booking_id || null, type, title, message]
     );
-    // Push via SSE
-    sendSSE(user_id, { type: 'NOTIFICATION', notification: rows[0] });
+    
+    const { rows: countRows } = await pool.query(`SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = FALSE`, [user_id]);
+    const unreadCount = parseInt(countRows[0].count);
+    
+    sendSSE(user_id, { type: 'NOTIFICATION', notification: rows[0], unreadCount });
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error(err);

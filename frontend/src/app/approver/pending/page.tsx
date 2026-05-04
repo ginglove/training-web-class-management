@@ -4,8 +4,7 @@ import * as React from 'react';
 import { Card } from '@/components/ui/Card';
 import { fetchApi } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { safeFormat } from '@/lib/date-utils';
 import { 
   ShieldCheck, ArrowRight, User, Calendar, MapPin, 
   CheckCircle2, XCircle, Info, MessageCircle, Clock, 
@@ -119,15 +118,13 @@ export default function ApproverPendingPage() {
                   <div className="absolute top-0 right-0 p-8 opacity-[0.03] rotate-12 pointer-events-none">
                     <Gavel className="w-40 h-40" />
                   </div>
-
                   <div className="space-y-2 relative z-10">
                     <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]">Lịch trình dự kiến</p>
                     <p className="text-2xl font-black text-slate-800">{b.slot_name}</p>
                     <p className="text-xs text-slate-600 font-black bg-white px-4 py-1.5 rounded-xl border border-emerald-100 shadow-sm">
-                      {format(new Date(b.date), 'EEEE, dd/MM/yyyy', { locale: vi })}
+                      {safeFormat(b.date, 'EEEE, dd/MM/yyyy')}
                     </p>
                   </div>
-                  
                   <div className="w-full space-y-4 relative z-10">
                     <Link href={`/approver/evaluate/${b.id}`} className="block">
                       <button className="w-full py-5 bg-emerald-600 text-white font-black text-[11px] uppercase tracking-[0.25em] rounded-[1.5rem] shadow-2xl shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.03] active:scale-95 transition-all flex items-center justify-center gap-3">
@@ -135,7 +132,6 @@ export default function ApproverPendingPage() {
                         <span>Phê duyệt hồ sơ</span>
                       </button>
                     </Link>
-                    
                     <Link href={`/bookings/${b.id}`} className="inline-flex items-center gap-2.5 text-[10px] font-black text-slate-400 hover:text-emerald-600 uppercase tracking-[0.2em] transition-all group/link">
                       <span>Kiểm tra toàn diện</span>
                       <ArrowUpRight className="w-3.5 h-3.5 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform" />
@@ -154,10 +150,7 @@ export default function ApproverPendingPage() {
               <h3 className="text-3xl font-black text-slate-800">Không có yêu cầu chờ duyệt 🧊</h3>
               <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">Tất cả yêu cầu đã được phê duyệt hoặc chưa có hồ sơ mới từ Reviewer.</p>
             </div>
-            <button 
-              onClick={() => loadBookings()}
-              className="px-12 py-5 bg-white border-2 border-slate-100 rounded-[1.5rem] text-[10px] font-black text-emerald-600 hover:border-emerald-500 hover:bg-emerald-50 hover:scale-105 transition-all uppercase tracking-[0.2em] flex items-center gap-3 mx-auto"
-            >
+            <button onClick={() => loadBookings()} className="px-12 py-5 bg-white border-2 border-slate-100 rounded-[1.5rem] text-[10px] font-black text-emerald-600 hover:border-emerald-500 hover:bg-emerald-50 hover:scale-105 transition-all uppercase tracking-[0.2em] flex items-center gap-3 mx-auto">
               <RefreshCcw className="w-4 h-4" />
               <span>Làm mới hàng đợi</span>
             </button>

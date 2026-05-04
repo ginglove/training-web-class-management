@@ -34,7 +34,8 @@ import { toast } from 'react-hot-toast';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { cn } from '@/lib/utils';
 
-export default function ReviewerEvaluatePage({ params }: { params: { id: string } }) {
+export default function ReviewerEvaluatePage({ params }: { params: Promise<{ id: string }> }) {
+  const unwrappedParams = React.use(params);
   const router = useRouter();
   const [booking, setBooking] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
@@ -42,16 +43,16 @@ export default function ReviewerEvaluatePage({ params }: { params: { id: string 
   const [note, setNote] = React.useState('');
 
   React.useEffect(() => {
-    fetchApi(`/api/bookings/${params.id}`)
+    fetchApi(`/api/bookings/${unwrappedParams.id}`)
       .then(setBooking)
       .catch(err => toast.error(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params.id]);
+  }, [unwrappedParams.id]);
 
   const handleForward = async () => {
     setProcessing(true);
     try {
-      await fetchApi(`/api/bookings/${params.id}/forward`, {
+      await fetchApi(`/api/bookings/${unwrappedParams.id}/forward`, {
         method: 'PATCH',
         body: JSON.stringify({ note }),
       });
@@ -71,7 +72,7 @@ export default function ReviewerEvaluatePage({ params }: { params: { id: string 
     }
     setProcessing(true);
     try {
-      await fetchApi(`/api/bookings/${params.id}/reject`, {
+      await fetchApi(`/api/bookings/${unwrappedParams.id}/reject`, {
         method: 'PATCH',
         body: JSON.stringify({ reason: note }),
       });

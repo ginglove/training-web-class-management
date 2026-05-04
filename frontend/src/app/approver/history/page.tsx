@@ -5,8 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { fetchApi } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
 import { Input as CustomInput } from '@/components/ui/Input';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { safeFormat } from '@/lib/date-utils';
 import { 
   ShieldCheck, 
   ArrowRight, 
@@ -159,7 +158,7 @@ export default function ApproverHistoryPage() {
                           </div>
                           <div className="space-y-0.5">
                              <p className="text-sm font-black text-slate-700 tracking-tight leading-none">
-                               {format(new Date(b.date), 'dd/MM/yyyy')}
+                               {safeFormat(b.date, 'dd/MM/yyyy')}
                              </p>
                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{b.slot_name}</p>
                           </div>

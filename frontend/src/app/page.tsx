@@ -62,7 +62,7 @@ export default function Home() {
       login(data.user, data.access_token, data.refresh_token);
       
       if (data.force_password_change) {
-        router.push('/change-password');
+        router.push('/profile/change-password');
       } else {
         router.push('/home');
       }

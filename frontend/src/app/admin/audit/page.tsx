@@ -79,7 +79,7 @@ export default function AuditLogPage() {
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
           <CustomInput 
             type="text"
-            placeholder="Tìm theo tiêu đề hoặc người đặt..."
+            placeholder="Tìm theo người thực hiện, trạng thái, ghi chú..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-14 h-14 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none shadow-sm"
