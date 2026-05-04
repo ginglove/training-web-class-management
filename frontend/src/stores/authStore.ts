@@ -9,6 +9,8 @@ interface User {
   department: string | null;
   phone?: string | null;
   username?: string | null;
+  avatar_url?: string | null;
+  created_at?: string | null;
 }
 
 interface AuthState {
