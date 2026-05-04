@@ -1,0 +1,32 @@
+require('dotenv').config();
+const express = require('express');
+const morgan  = require('morgan');
+const { requireAuth } = require('../../shared/middleware/auth');
+
+const bookingRoutes = require('./routes/bookings');
+const roomRoutes    = require('./routes/rooms');
+const adminRoutes   = require('./routes/admin');
+
+const app  = express();
+const PORT = process.env.PORT || 8002;
+
+app.use(morgan('dev'));
+app.use(express.json());
+
+app.get('/health', (_, res) => res.json({ status: 'ok', service: 'booking-service' }));
+
+// Apply auth middleware to all booking routes
+app.use('/api/bookings', requireAuth, bookingRoutes);
+app.use('/api/rooms', requireAuth, roomRoutes);
+app.use('/api/admin', requireAuth, adminRoutes);
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+});
+
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => console.log(`📅 Booking Service on port ${PORT}`));
+}
+
+module.exports = app;

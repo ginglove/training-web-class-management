@@ -1,0 +1,13 @@
+{
+  "name": "class-booking-backend",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["gateway", "auth-service", "booking-service", "notification-service"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=gateway\" \"npm run dev --workspace=auth-service\" \"npm run dev --workspace=booking-service\" \"npm run dev --workspace=notification-service\"",
+    "install:all": "npm install && npm install --workspace=gateway && npm install --workspace=auth-service && npm install --workspace=booking-service && npm install --workspace=notification-service"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

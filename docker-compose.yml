@@ -1,0 +1,92 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: class-booking-db
+    environment:
+      POSTGRES_DB: class_booking
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d class_booking"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  gateway:
+    build: ./backend/gateway
+    container_name: class-booking-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: 8000
+      FRONTEND_URL: http://localhost:3000
+      AUTH_SERVICE_URL: http://auth-service:8001
+      BOOKING_SERVICE_URL: http://booking-service:8002
+      NOTIF_SERVICE_URL: http://notification-service:8003
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-prod}
+    depends_on:
+      - auth-service
+      - booking-service
+      - notification-service
+
+  auth-service:
+    build: ./backend/auth-service
+    container_name: class-booking-auth
+    ports:
+      - "8001:8001"
+    environment:
+      PORT: 8001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: class_booking
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-prod}
+      JWT_EXPIRES_IN: 15m
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  booking-service:
+    build: ./backend/booking-service
+    container_name: class-booking-core
+    ports:
+      - "8002:8002"
+    environment:
+      PORT: 8002
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: class_booking
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NOTIF_SERVICE_URL: http://notification-service:8003
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notification-service:
+    build: ./backend/notification-service
+    container_name: class-booking-notif
+    ports:
+      - "8003:8003"
+    environment:
+      PORT: 8003
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: class_booking
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

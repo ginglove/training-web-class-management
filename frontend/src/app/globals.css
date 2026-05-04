@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #E8EDF2;
+  --foreground: #1E293B;
+  
+  --primary: #0EA5E9;
+  --primary-dark: #0284c7;
+  
+  --accent: #F59E0B;
+  --danger: #EF4444;
+  --success: #10B981;
+  
+  --shadow-light: #ffffff;
+  --shadow-dark: #c8d0d8;
+  
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Base Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Custom Scrollbar for sleekness */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Utilities for Neumorphism */
+@layer utilities {
+  .neu-flat {
+    background: var(--background);
+    box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+    border-radius: var(--radius-md);
+  }
+  
+  .neu-pressed {
+    background: var(--background);
+    box-shadow: inset 8px 8px 16px var(--shadow-dark), inset -8px -8px 16px var(--shadow-light);
+    border-radius: var(--radius-md);
+  }
+  
+  .neu-btn {
+    background: var(--background);
+    box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+  }
+  
+  .neu-btn:active {
+    box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
+  }
+  
+  .neu-input {
+    background: var(--background);
+    box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light);
+    border-radius: var(--radius-sm);
+    outline: none;
+    border: none;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+  }
+  
+  .neu-input:focus {
+    box-shadow: inset 8px 8px 16px var(--shadow-dark), inset -8px -8px 16px var(--shadow-light);
+  }
+}
