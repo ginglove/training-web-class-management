@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
 export default function ProfilePage() {
-  const { user, setUser } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [loading, setLoading] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('info');
   
@@ -85,7 +85,7 @@ export default function ProfilePage() {
         method: 'PATCH',
         body: JSON.stringify(body),
       });
-      setUser(updatedUser);
+      updateUser(updatedUser);
       toast.success('Cập nhật hồ sơ thành công!');
     } catch (err: any) {
       toast.error(getErrorMessage(err, 'Cập nhật thất bại'));
