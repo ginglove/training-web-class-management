@@ -120,7 +120,7 @@ export default function NotificationsPage() {
                       
                       <div className="mt-4 flex items-center justify-between">
                          <div className="flex items-center gap-2">
-                           <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                           <Badge variant="default" className="text-[10px] px-2 py-0.5">
                              {n.type.replace('_', ' ')}
                            </Badge>
                            {n.booking_id && (
