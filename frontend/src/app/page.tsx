@@ -156,7 +156,7 @@ export default function Home() {
             </div>
 
             <div className="flex items-center justify-between px-2">
-              <Link href="/forgot-password" size="sm" className="text-[10px] font-black text-slate-400 hover:text-primary uppercase tracking-widest transition-colors">
+              <Link href="/forgot-password" className="text-[10px] font-black text-slate-400 hover:text-primary uppercase tracking-widest transition-colors">
                 Quên mật khẩu?
               </Link>
               <div className="flex items-center gap-2 text-[10px] font-black text-emerald-500 uppercase tracking-widest">
