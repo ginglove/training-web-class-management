@@ -34,24 +34,34 @@ import { toast } from 'react-hot-toast';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { cn } from '@/lib/utils';
 
-export default function ApproverEvaluatePage({ params }: { params: { id: string } }) {
+export default function ApproverEvaluatePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { id } = React.use(params);
   const [booking, setBooking] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [processing, setProcessing] = React.useState(false);
   const [note, setNote] = React.useState('');
 
+  const loadBooking = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetchApi(`/api/bookings/${id}`);
+      setBooking(res.data);
+    } catch (err: any) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
   React.useEffect(() => {
-    fetchApi(`/api/bookings/${params.id}`)
-      .then(setBooking)
-      .catch(err => toast.error(getErrorMessage(err)))
-      .finally(() => setLoading(false));
-  }, [params.id]);
+    loadBooking();
+  }, [loadBooking]);
 
   const handleApprove = async () => {
     setProcessing(true);
     try {
-      await fetchApi(`/api/bookings/${params.id}/approve`, {
+      await fetchApi(`/api/bookings/${id}/approve`, {
         method: 'PATCH',
         body: JSON.stringify({ note }),
       });
@@ -71,7 +81,7 @@ export default function ApproverEvaluatePage({ params }: { params: { id: string 
     }
     setProcessing(true);
     try {
-      await fetchApi(`/api/bookings/${params.id}/reject`, {
+      await fetchApi(`/api/bookings/${id}/reject`, {
         method: 'PATCH',
         body: JSON.stringify({ reason: note }),
       });
@@ -294,7 +304,7 @@ export default function ApproverEvaluatePage({ params }: { params: { id: string 
                 </div>
                 <div className="space-y-2 opacity-50">
                   <p className="text-lg font-black text-slate-400 leading-none italic">Đang chờ Ban Giám Hiệu phê duyệt...</p>
-                  <p className="text-sm text-slate-400 font-bold">Quyết định cuối cùng sẽ kích hoạt cấp phòng</p>
+                  <p className="text-sm text-slate-400 font-bold">Quyết decision cuối cùng sẽ kích hoạt cấp phòng</p>
                 </div>
               </div>
             </div>
