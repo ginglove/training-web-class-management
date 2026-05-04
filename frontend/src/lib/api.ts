@@ -3,7 +3,11 @@ import { useAuthStore } from '../stores/authStore';
 // Use relative path by default so Next.js rewrites (or Vercel routes) proxy the request
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-export async function fetchApi(endpoint: string, options: RequestInit = {}) {
+interface FetchApiOptions extends RequestInit {
+  _isRetry?: boolean;
+}
+
+export async function fetchApi(endpoint: string, options: FetchApiOptions = {}) {
   const { token, logout } = useAuthStore.getState();
 
   const headers = new Headers(options.headers || {});

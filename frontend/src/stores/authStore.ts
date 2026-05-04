@@ -11,6 +11,7 @@ interface User {
   username?: string | null;
   avatar_url?: string | null;
   created_at?: string | null;
+  status?: string | null;
 }
 
 interface AuthState {

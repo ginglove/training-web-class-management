@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function SchedulePage() {
+function ScheduleContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -306,5 +306,13 @@ export default function SchedulePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SchedulePage() {
+  return (
+    <React.Suspense fallback={<div className="py-32 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">Đang tải lịch...</div>}>
+      <ScheduleContent />
+    </React.Suspense>
   );
 }

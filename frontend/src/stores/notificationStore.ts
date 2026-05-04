@@ -25,6 +25,7 @@ interface NotificationState {
   markAllAsRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   clearReadNotifications: () => Promise<void>;
+  addNotification: (notification: Notification) => void;
   
   // Internal
   initialize: (userId: string) => void;
@@ -128,6 +129,13 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ notifications: originalNotifications });
       throw err;
     }
+  },
+
+  addNotification: (notification: Notification) => {
+    set(state => ({
+      notifications: [notification, ...state.notifications],
+      unreadCount: state.unreadCount + 1
+    }));
   },
 
   initialize: (userId: string) => {
