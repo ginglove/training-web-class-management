@@ -7,6 +7,8 @@ interface User {
   full_name: string;
   role: 'ADMIN' | 'APPROVER' | 'REVIEWER' | 'CREATOR';
   department: string | null;
+  phone?: string | null;
+  username?: string | null;
 }
 
 interface AuthState {
