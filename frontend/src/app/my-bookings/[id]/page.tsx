@@ -15,36 +15,37 @@ import {
   Copy
 } from 'lucide-react';
 
-export default function MyBookingDetailPage({ params }: { params: { id: string } }) {
+export default function MyBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { id } = React.use(params);
   const [booking, setBooking] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
-    loadBooking();
-  }, [params.id]);
-
-  const loadBooking = async () => {
+  const loadBooking = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetchApi(`/api/bookings/${params.id}`);
+      const res = await fetchApi(`/api/bookings/${id}`);
       setBooking(res.data);
     } catch (err: any) {
-      toast.error(getErrorMessage(err, 'Lỗi khi tải chi tiết booking'));
+      toast.error(getErrorMessage(err, 'Booking detail load failed'));
       router.push('/my-bookings');
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, router]);
+
+  React.useEffect(() => {
+    loadBooking();
+  }, [loadBooking]);
 
   const handleAction = async (action: string) => {
     if (action === 'CANCEL') {
       try {
         await fetchApi(`/api/bookings/${booking.id}/cancel`, { method: 'POST' });
-        toast.success('Đã hủy booking');
+        toast.success('Booking cancelled');
         loadBooking();
       } catch (err: any) {
-        toast.error(getErrorMessage(err, 'Hủy thất bại'));
+        toast.error(getErrorMessage(err, 'Cancel failed'));
       }
     } else if (action === 'CLONE') {
       router.push(`/bookings/new?cloneFrom=${booking.id}`);
@@ -71,38 +72,56 @@ export default function MyBookingDetailPage({ params }: { params: { id: string }
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Chi tiết Booking</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Booking Details</h1>
           <p className="text-slate-500 font-mono text-sm mt-1">#{booking.id}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2 space-y-6">
-          <Card className="p-6">
-            <h2 className="text-xl font-bold mb-4">{booking.title}</h2>
-            <div className="space-y-4">
+          <Card className="p-8 space-y-8">
+            <div className="flex items-center justify-between border-b pb-6">
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-slate-500">Course / Content</div>
+                <div className="text-xl font-bold text-slate-900">{booking.course_name || booking.purpose}</div>
+              </div>
+              <Badge className={cn(
+                "px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest",
+                displayStatus === 'APPROVED' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                displayStatus === 'PENDING_REVIEW' ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                displayStatus === 'COMPLETED' ? "bg-slate-50 text-slate-600 border-slate-100" :
+                "bg-rose-50 text-rose-600 border-rose-100"
+              )}>
+                {displayStatus}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-slate-400 mt-0.5" />
                 <div>
-                  <div className="font-medium text-slate-900">{booking.room?.name || 'Phòng không xác định'}</div>
-                  <div className="text-sm text-slate-500">Sức chứa: {booking.room?.capacity} người</div>
+                  <div className="font-medium text-slate-900">{booking.class_name}</div>
+                  <div className="text-sm text-slate-500">{booking.class_location}</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Clock className="w-5 h-5 text-slate-400 mt-0.5" />
                 <div>
-                  <div className="font-medium text-slate-900">
-                    {format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}
-                  </div>
-                  <div className="text-sm text-slate-500">
-                    Ngày: {format(new Date(booking.start_time), 'dd/MM/yyyy')}
-                  </div>
+                  <div className="font-medium text-slate-900">{format(new Date(booking.date), 'dd/MM/yyyy')}</div>
+                  <div className="text-sm text-slate-500">{booking.slot_name} ({booking.start_time} - {booking.end_time})</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Users className="w-5 h-5 text-slate-400 mt-0.5" />
                 <div>
-                  <div className="font-medium text-slate-900">Mục đích sử dụng</div>
+                  <div className="font-medium text-slate-900">Attendees</div>
+                  <div className="text-sm text-slate-500">{booking.attendee_count} people</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Users className="w-5 h-5 text-slate-400 mt-0.5" />
+                <div>
+                  <div className="font-medium text-slate-900">Purpose</div>
                   <div className="text-sm text-slate-500">{booking.reason}</div>
                 </div>
               </div>
@@ -110,74 +129,84 @@ export default function MyBookingDetailPage({ params }: { params: { id: string }
           </Card>
           
           <Card className="p-6">
-            <h3 className="font-bold text-lg mb-4">Mô phỏng Mini Calendar</h3>
+            <h3 className="font-bold text-lg mb-4">Calendar Preview</h3>
             <div className="bg-slate-50 rounded-lg p-8 flex flex-col items-center justify-center text-slate-400 border border-dashed border-slate-200">
               <CalendarIcon className="w-8 h-8 mb-2" />
-              <p className="text-sm text-center">Calendar UI Component (Đang chờ tích hợp từ package Calendar)</p>
+              <p className="text-sm text-center">Calendar UI Component (Pending integration)</p>
             </div>
           </Card>
         </div>
 
         <div className="space-y-6">
           <Card className="p-6">
-            <h3 className="font-bold mb-4">Trạng thái</h3>
+            <h3 className="font-bold mb-4">Status</h3>
             
             <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-              {/* Timeline Items */}
               <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                 <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                   <FileText className="w-4 h-4" />
                 </div>
                 <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-white shadow-sm">
-                  <div className="font-bold text-slate-900 text-sm">Đã tạo yêu cầu</div>
+                  <div className="font-bold text-slate-900 text-sm">Request Created</div>
                   <div className="text-xs text-slate-500 mt-1">{format(new Date(booking.created_at), 'dd/MM/yyyy HH:mm')}</div>
                 </div>
               </div>
               
               <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className={\`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 \${
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${
                   displayStatus === 'COMPLETED' ? 'bg-slate-100 text-slate-600' :
                   displayStatus === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : 
                   displayStatus === 'REJECTED' || displayStatus === 'CANCELLED' ? 'bg-rose-100 text-rose-600' : 
                   'bg-yellow-100 text-yellow-600'
-                }\`}>
+                }`}>
                   {displayStatus === 'COMPLETED' || displayStatus === 'APPROVED' ? <CheckCircle2 className="w-4 h-4" /> : 
                    displayStatus === 'REJECTED' || displayStatus === 'CANCELLED' ? <XCircle className="w-4 h-4" /> : 
                    <Clock className="w-4 h-4" />}
                 </div>
                 <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-white shadow-sm">
                   <div className="font-bold text-slate-900 text-sm">
-                    {displayStatus === 'COMPLETED' ? 'Đã hoàn thành' : 
-                     displayStatus === 'APPROVED' ? 'Đã duyệt' : 
-                     displayStatus === 'REJECTED' ? 'Bị từ chối' : 
-                     displayStatus === 'CANCELLED' ? 'Đã hủy' : 'Chờ duyệt'}
+                    {displayStatus === 'COMPLETED' ? 'Completed' : 
+                     displayStatus === 'APPROVED' ? 'Approved' :
+                     displayStatus === 'REJECTED' ? 'Rejected' :
+                     displayStatus === 'CANCELLED' ? 'Cancelled' :
+                     'Processing'}
                   </div>
-                  {displayStatus === 'REJECTED' && booking.rejection_reason && (
-                    <div className="text-xs text-rose-600 mt-1 mt-2 bg-rose-50 p-2 rounded">
-                      Lý do: {booking.rejection_reason}
+                  {booking.reviewer_note && (
+                    <div className="text-xs text-slate-500 mt-2 p-2 bg-slate-50 rounded border-l-2 border-primary italic">
+                      "{booking.reviewer_note}"
                     </div>
                   )}
                 </div>
               </div>
             </div>
-            
-            {!isPastApproved && (
-              <div className="mt-8 pt-6 border-t border-slate-100 space-y-3">
-                {(booking.status === 'REJECTED' || booking.status === 'CANCELLED') && (
-                  <Button className="w-full text-blue-600 bg-blue-50 hover:bg-blue-100 border-none" variant="outline" onClick={() => handleAction('CLONE')}>
-                    <Copy className="w-4 h-4 mr-2" /> Tạo lại yêu cầu (Clone)
-                  </Button>
-                )}
-                {booking.status === 'PENDING' && (
-                  <Button className="w-full text-rose-600 bg-rose-50 hover:bg-rose-100 border-none" variant="outline" onClick={() => handleAction('CANCEL')}>
-                    <XCircle className="w-4 h-4 mr-2" /> Hủy yêu cầu này
-                  </Button>
-                )}
-              </div>
-            )}
           </Card>
+
+          <div className="space-y-4">
+            <Button 
+              className="w-full justify-start gap-2 bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
+              onClick={() => handleAction('CLONE')}
+            >
+              <Copy className="w-4 h-4" />
+              Clone Request
+            </Button>
+            
+            {(booking.status === 'PENDING_REVIEW' || booking.status === 'IN_REVIEW') && (
+              <Button 
+                variant="destructive"
+                className="w-full justify-start gap-2"
+                onClick={() => handleAction('CANCEL')}
+              >
+                <XCircle className="w-4 h-4" />
+                Cancel Request
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
 }
