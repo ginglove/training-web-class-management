@@ -11,7 +11,7 @@ import { fetchApi } from '@/lib/api';
 import { 
   ArrowLeft, ArrowRight, Check, Calendar, Users, 
   Info, Laptop, CheckCircle2, MapPin, Clock, 
-  ChevronRight, Sparkles, Building, Hash, Zap, XCircle
+  ChevronRight, Sparkles, Building, Hash, Zap, XCircle, ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errorTranslations';
