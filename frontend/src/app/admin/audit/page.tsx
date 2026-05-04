@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { fetchApi } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
+import { Input as CustomInput } from '@/components/ui/Input';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 
@@ -24,7 +25,6 @@ import {
   ArrowUpRight,
   ExternalLink
 } from 'lucide-react';
-import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -77,11 +77,12 @@ export default function AuditLogPage() {
 
         <div className="relative w-full lg:w-80 group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
-          <Input 
-            placeholder="Tìm theo actor, ghi chú, trạng thái..." 
+          <CustomInput 
+            type="text"
+            placeholder="Tìm theo tiêu đề hoặc người đặt..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-14 h-14 bg-white border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:bg-white focus:border-primary/30 transition-all shadow-xl shadow-slate-200/20 outline-none"
+            className="w-full pl-14 h-14 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none shadow-sm"
           />
         </div>
       </div>

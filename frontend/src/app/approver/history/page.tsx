@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Card } from '@/components/ui/Card';
 import { fetchApi } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
+import { Input as CustomInput } from '@/components/ui/Input';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 
@@ -26,7 +26,6 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import Link from 'next/link';
-import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -83,7 +82,7 @@ export default function ApproverHistoryPage() {
 
         <div className="relative w-full lg:w-80 group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
-          <Input 
+          <CustomInput 
             placeholder="Tìm theo giảng viên, phòng học..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

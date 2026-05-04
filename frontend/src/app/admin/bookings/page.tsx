@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
+import { Input as CustomInput } from '@/components/ui/Input';
 import { fetchApi } from '@/lib/api';
 import { 
   Search, 
@@ -99,7 +99,7 @@ export default function AdminBookingsOversightPage() {
         <div className="flex flex-col lg:flex-row items-center gap-8">
           <div className="relative flex-1 group w-full">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
-            <Input 
+            <CustomInput 
               type="text"
               placeholder="Tìm theo tiêu đề hoặc người đặt..."
               className="w-full pl-14 h-14 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none"
