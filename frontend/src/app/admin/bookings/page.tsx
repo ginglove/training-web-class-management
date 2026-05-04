@@ -93,7 +93,7 @@ export default function AdminBookingsOversightPage() {
         </div>
         
         <button 
-          onClick={() => toast.info('Tính năng xuất báo cáo Excel đang được phát triển... 🛠️')}
+          onClick={() => toast('Tính năng xuất báo cáo Excel đang được phát triển... 🛠️')}
           className="h-16 px-10 bg-white border-2 border-slate-900 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] text-slate-900 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] flex items-center justify-center gap-3 active:scale-95 group"
         >
           <FileDown className="w-6 h-6 group-hover:bounce transition-transform" />
