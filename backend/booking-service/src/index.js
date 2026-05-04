@@ -1,4 +1,6 @@
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
+}
 const express = require('express');
 const morgan  = require('morgan');
 const { requireAuth } = require('../../shared/middleware/auth');
@@ -8,7 +10,7 @@ const roomRoutes    = require('./routes/rooms');
 const adminRoutes   = require('./routes/admin');
 
 const app  = express();
-const PORT = process.env.PORT || 8002;
+const PORT = process.env.BOOKING_SERVICE_PORT || 8012;
 
 app.use(morgan('dev'));
 app.use(express.json());

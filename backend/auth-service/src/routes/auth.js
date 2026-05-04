@@ -8,5 +8,6 @@ router.post('/logout',           ctrl.logout);
 router.get('/me',                ctrl.getMe);
 router.patch('/me',              ctrl.updateMe);
 router.post('/change-password',  ctrl.changePassword);
+router.post('/forgot-password',  ctrl.forgotPassword);
 
 module.exports = router;

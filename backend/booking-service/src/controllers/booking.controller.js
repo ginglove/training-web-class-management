@@ -1,5 +1,5 @@
 const pool = require('../db');
-const NOTIF_URL = process.env.NOTIF_SERVICE_URL || 'http://localhost:8003';
+const NOTIF_URL = process.env.NOTIF_SERVICE_URL || 'http://localhost:8013';
 
 // Helper: send notification via HTTP to notification-service
 async function notify(payload) {
@@ -24,8 +24,8 @@ async function addLog(client, { bookingId, actorId, fromStatus, toStatus, commen
 // GET /bookings
 async function list(req, res, next) {
   try {
-    const userId = req.headers['x-user-id'];
-    const role   = req.headers['x-user-role'];
+    const userId = req.user.sub;
+    const role   = req.user.role;
     const { status, date_from, date_to, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
@@ -67,8 +67,8 @@ async function list(req, res, next) {
 // GET /bookings/:id
 async function getById(req, res, next) {
   try {
-    const userId = req.headers['x-user-id'];
-    const role   = req.headers['x-user-role'];
+    const userId = req.user.sub;
+    const role   = req.user.role;
     const { id } = req.params;
 
     const { rows } = await pool.query(
@@ -94,34 +94,70 @@ async function getById(req, res, next) {
 // POST /bookings
 async function create(req, res, next) {
   try {
-    const creatorId = req.headers['x-user-id'];
-    const { class_id, date, slot_id, purpose, course_name, attendee_count } = req.body;
+    const creatorId = req.user.sub;
+    const { class_id, date, slot_id, purpose, attendee_count, course_name } = req.body;
 
     if (!class_id || !date || !slot_id || !purpose || !attendee_count)
-      return res.status(400).json({ error: 'class_id, date, slot_id, purpose, attendee_count required' });
-
-    // Validate date is not in the past
-    if (new Date(date) < new Date(new Date().toDateString()))
-      return res.status(400).json({ error: 'Booking date cannot be in the past' });
+      return res.status(400).json({ error: 'Missing required fields' });
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      const { rows } = await client.query(
-        `INSERT INTO bookings (creator_id, class_id, date, slot_id, purpose, course_name, attendee_count)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [creatorId, class_id, date, slot_id, purpose, course_name, attendee_count]
+      // 1. Get Slot Details for Time Validation
+      const { rows: slots } = await client.query("SELECT * FROM time_slots WHERE id = $1", [slot_id]);
+      if (!slots.length) return res.status(404).json({ error: 'Invalid time slot' });
+      const slot = slots[0];
+
+      // Rule 36: Bookings must be at least 2 hours in advance
+      // Combine date and start_time to check against NOW()
+      const slotStart = new Date(`${date}T${slot.start_time}`);
+      const nowPlus2h = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      
+      if (slotStart < nowPlus2h) {
+        return res.status(422).json({ 
+          error: 'ERR_TIME_TOO_SOON', 
+          message: 'Bookings must be made at least 2 hours before the slot starts' 
+        });
+      }
+
+      const { rows: rooms } = await client.query("SELECT status, capacity FROM classes WHERE id = $1", [class_id]);
+      if (!rooms.length) return res.status(404).json({ error: 'Room not found' });
+      if (rooms[0].status !== 'AVAILABLE')
+        return res.status(422).json({ error: 'ERR_CLASS_NOT_AVAILABLE', message: 'Room is not available' });
+      
+      if (attendee_count > rooms[0].capacity)
+        return res.status(422).json({ error: 'ERR_ATTENDEES_EXCEEDED', message: `Max capacity is ${rooms[0].capacity}` });
+
+      // 3. Weekly Quota (Rule 37: 5 active bookings/week)
+      const { rows: countRows } = await client.query(
+        "SELECT COUNT(*) FROM bookings WHERE creator_id = $1 AND status NOT IN ('REJECTED', 'CANCELLED') AND created_at >= date_trunc('week', now())",
+        [creatorId]
       );
-      const booking = rows[0];
-      await addLog(client, { bookingId: booking.id, actorId: creatorId, fromStatus: null, toStatus: 'DRAFT', comment: 'Booking created' });
+      if (parseInt(countRows[0].count) >= 5)
+        return res.status(422).json({ error: 'ERR_QUOTA_EXCEEDED', message: 'Weekly quota reached (5 bookings/week)' });
+
+      // 4. Create Booking
+      const { rows: newBooking } = await client.query(
+        `INSERT INTO bookings (creator_id, class_id, date, slot_id, purpose, attendee_count, course_name, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT') RETURNING *`,
+        [creatorId, class_id, date, slot_id, purpose, attendee_count, course_name]
+      );
+      const booking = newBooking[0];
+      
+      await addLog(client, { 
+        bookingId: booking.id, 
+        actorId: creatorId, 
+        fromStatus: null, 
+        toStatus: 'DRAFT', 
+        comment: 'Booking created' 
+      });
 
       await client.query('COMMIT');
       res.status(201).json(booking);
     } catch (err) {
       await client.query('ROLLBACK');
       if (err.code === '23505') return res.status(409).json({ error: 'Room is already booked for this slot' });
-      if (err.message?.includes('capacity')) return res.status(400).json({ error: err.message });
       throw err;
     } finally { client.release(); }
   } catch (err) { next(err); }
@@ -130,8 +166,8 @@ async function create(req, res, next) {
 // PATCH /bookings/:id/submit — CREATOR: DRAFT → PENDING_REVIEW
 async function submit(req, res, next) {
   try {
-    const userId = req.headers['x-user-id'];
-    const role   = req.headers['x-user-role'];
+    const userId = req.user.sub;
+    const role   = req.user.role;
     const { id } = req.params;
     if (role !== 'CREATOR') return res.status(403).json({ error: 'Only creators can submit' });
 
@@ -149,7 +185,7 @@ async function submit(req, res, next) {
       await client.query('COMMIT');
 
       // Notify all reviewers
-      const { rows: reviewers } = await pool.query(`SELECT id FROM users WHERE role = 'REVIEWER' AND is_active = TRUE`);
+      const { rows: reviewers } = await pool.query(`SELECT id FROM users WHERE role = 'REVIEWER' AND status = 'ACTIVE'`);
       for (const r of reviewers) {
         await notify({ user_id: r.id, booking_id: id, type: 'BOOKING_SUBMITTED', title: 'New Booking Awaiting Review', message: `Booking "${rows[0].purpose}" needs your review.` });
       }
@@ -161,8 +197,8 @@ async function submit(req, res, next) {
 // PATCH /bookings/:id/claim — REVIEWER: PENDING_REVIEW → IN_REVIEW
 async function claim(req, res, next) {
   try {
-    const userId = req.headers['x-user-id'];
-    const role   = req.headers['x-user-role'];
+    const userId = req.user.sub;
+    const role   = req.user.role;
     const { id } = req.params;
     if (role !== 'REVIEWER') return res.status(403).json({ error: 'Only reviewers can claim' });
 
@@ -185,8 +221,8 @@ async function claim(req, res, next) {
 // PATCH /bookings/:id/forward — REVIEWER: IN_REVIEW → PENDING_APPROVAL
 async function forward(req, res, next) {
   try {
-    const userId = req.headers['x-user-id'];
-    const role   = req.headers['x-user-role'];
+    const userId = req.user.sub;
+    const role   = req.user.role;
     const { id } = req.params;
     if (role !== 'REVIEWER') return res.status(403).json({ error: 'Only reviewers can forward' });
 
@@ -204,7 +240,7 @@ async function forward(req, res, next) {
       await addLog(client, { bookingId: id, actorId: userId, fromStatus: 'IN_REVIEW', toStatus: 'PENDING_APPROVAL', comment: req.body.note || 'Forwarded to approver' });
       await client.query('COMMIT');
 
-      const { rows: approvers } = await pool.query(`SELECT id FROM users WHERE role='APPROVER' AND is_active=TRUE`);
+      const { rows: approvers } = await pool.query(`SELECT id FROM users WHERE role='APPROVER' AND status='ACTIVE'`);
       for (const a of approvers) {
         await notify({ user_id: a.id, booking_id: id, type: 'BOOKING_FORWARDED', title: 'Booking Ready for Approval', message: 'A booking has been reviewed and needs your approval.' });
       }
@@ -216,25 +252,47 @@ async function forward(req, res, next) {
 // PATCH /bookings/:id/approve — APPROVER: PENDING_APPROVAL → APPROVED
 async function approve(req, res, next) {
   try {
-    const userId = req.headers['x-user-id'];
-    const role   = req.headers['x-user-role'];
+    const userId = req.user.sub;
+    const role   = req.user.role;
     const { id } = req.params;
     if (role !== 'APPROVER' && role !== 'ADMIN') return res.status(403).json({ error: 'Only approvers can approve' });
-
-    const { rows } = await pool.query(`SELECT * FROM bookings WHERE id=$1`, [id]);
-    if (!rows.length) return res.status(404).json({ error: 'Booking not found' });
-    if (rows[0].status !== 'PENDING_APPROVAL') return res.status(400).json({ error: 'Booking must be PENDING_APPROVAL' });
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      const { rows: bookings } = await client.query("SELECT * FROM bookings WHERE id = $1 FOR UPDATE", [id]);
+      if (!bookings.length) return res.status(404).json({ error: 'Booking not found' });
+      const b = bookings[0];
+
+      if (b.status !== 'PENDING_APPROVAL') return res.status(400).json({ error: 'Booking must be PENDING_APPROVAL' });
+
+      // SRS LOGIC-APP-001: Race condition conflict check
+      // Check if another booking was approved for this room/date/slot while this one was pending
+      const { rows: conflicts } = await client.query(
+        `SELECT id FROM bookings 
+         WHERE class_id = $1 AND date = $2 AND slot_id = $3 
+         AND status = 'APPROVED' AND id <> $4`,
+        [b.class_id, b.date, b.slot_id, id]
+      );
+
+      if (conflicts.length > 0) {
+        await client.query("UPDATE bookings SET status = 'REJECTED' WHERE id = $1", [id]);
+        await addLog(client, { bookingId: id, actorId: userId, fromStatus: 'PENDING_APPROVAL', toStatus: 'REJECTED', comment: 'Auto-rejected due to approval conflict' });
+        await client.query('COMMIT');
+        return res.status(409).json({ error: 'ERR_CLASS_CONFLICT_ON_APPROVE', message: 'This room was just booked by another request.' });
+      }
+
+      // Finalize Approval
       await client.query(
         `UPDATE bookings SET status='APPROVED', approver_id=$1, approver_note=$2, approved_at=NOW() WHERE id=$3`,
         [userId, req.body.note || null, id]
       );
+      
       await addLog(client, { bookingId: id, actorId: userId, fromStatus: 'PENDING_APPROVAL', toStatus: 'APPROVED', comment: req.body.note || 'Approved' });
       await client.query('COMMIT');
-      notify({ user_id: rows[0].creator_id, booking_id: id, type: 'BOOKING_APPROVED', title: 'Booking Approved!', message: 'Your booking has been approved.' });
+
+      notify({ user_id: b.creator_id, booking_id: id, type: 'BOOKING_APPROVED', title: 'Booking Approved!', message: `Your booking for ${b.course_name || b.purpose} has been approved.` });
       res.json({ message: 'Approved', status: 'APPROVED' });
     } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
   } catch (err) { next(err); }
@@ -243,8 +301,8 @@ async function approve(req, res, next) {
 // PATCH /bookings/:id/reject — REVIEWER or APPROVER → REJECTED
 async function reject(req, res, next) {
   try {
-    const userId = req.headers['x-user-id'];
-    const role   = req.headers['x-user-role'];
+    const userId = req.user.sub;
+    const role   = req.user.role;
     const { id } = req.params;
     if (!['REVIEWER', 'APPROVER', 'ADMIN'].includes(role)) return res.status(403).json({ error: 'Not authorized' });
     if (!req.body.reason) return res.status(400).json({ error: 'reason is required for rejection' });
@@ -270,8 +328,8 @@ async function reject(req, res, next) {
 // PATCH /bookings/:id/cancel — CREATOR → CANCELLED
 async function cancel(req, res, next) {
   try {
-    const userId = req.headers['x-user-id'];
-    const role   = req.headers['x-user-role'];
+    const userId = req.user.sub;
+    const role   = req.user.role;
     const { id } = req.params;
 
     const { rows } = await pool.query(`SELECT * FROM bookings WHERE id=$1`, [id]);
@@ -292,4 +350,58 @@ async function cancel(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { list, getById, create, submit, claim, forward, approve, reject, cancel };
+async function getStats(req, res, next) {
+  try {
+    const userId = req.user.sub;
+    const role   = req.user.role;
+
+    let stats = {};
+
+    if (role === 'CREATOR') {
+      const { rows } = await pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'DRAFT')            AS draft,
+          COUNT(*) FILTER (WHERE status IN ('PENDING_REVIEW', 'IN_REVIEW', 'PENDING_APPROVAL')) AS processing,
+          COUNT(*) FILTER (WHERE status = 'APPROVED')         AS approved,
+          COUNT(*)                                            AS total
+        FROM bookings
+        WHERE creator_id = $1
+      `, [userId]);
+      stats = rows[0];
+    } else if (role === 'REVIEWER') {
+      const { rows } = await pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'PENDING_REVIEW')   AS pending,
+          COUNT(*) FILTER (WHERE status = 'IN_REVIEW' AND reviewer_id = $1) AS in_review,
+          COUNT(*) FILTER (WHERE (status = 'PENDING_APPROVAL' OR status = 'REJECTED') AND reviewer_id = $1 AND updated_at >= CURRENT_DATE) AS processed_today,
+          COUNT(*)                                            AS total
+        FROM bookings
+      `, [userId]);
+      stats = rows[0];
+    } else if (role === 'APPROVER') {
+      const { rows } = await pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'PENDING_APPROVAL') AS pending,
+          COUNT(*) FILTER (WHERE status = 'APPROVED' AND approver_id = $1 AND approved_at >= CURRENT_DATE) AS approved_today,
+          COUNT(*) FILTER (WHERE status = 'REJECTED' AND approver_id = $1 AND updated_at >= CURRENT_DATE) AS rejected_today,
+          COUNT(*)                                            AS total
+        FROM bookings
+      `);
+      stats = rows[0];
+    } else if (role === 'ADMIN') {
+      const { rows } = await pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'PENDING_REVIEW')   AS pending_review,
+          COUNT(*) FILTER (WHERE status = 'PENDING_APPROVAL') AS pending_approval,
+          COUNT(*) FILTER (WHERE status = 'APPROVED')         AS approved,
+          COUNT(*)                                            AS total
+        FROM bookings
+      `);
+      stats = rows[0];
+    }
+
+    res.json(stats);
+  } catch (err) { next(err); }
+}
+
+module.exports = { list, getById, create, submit, claim, forward, approve, reject, cancel, getStats };

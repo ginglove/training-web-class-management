@@ -1,59 +1,59 @@
 -- =============================================================
--- SEED DATA — Class Booking Management System
+-- SEED DATA — Class Booking Management System v3.1
 -- All passwords are: Password@123 (bcrypt hashed)
 -- =============================================================
 
 -- Time Slots (4 slots per SRS)
 INSERT INTO time_slots (slot_name, start_time, end_time, sort_order) VALUES
-  ('Slot 1 – Morning',   '07:30', '09:30', 1),
-  ('Slot 2 – Mid Morning','09:45','11:45', 2),
-  ('Slot 3 – Afternoon', '13:00', '15:00', 3),
+  ('Slot 1 – Morning',      '07:30', '09:30', 1),
+  ('Slot 2 – Mid Morning',  '09:45', '11:45', 2),
+  ('Slot 3 – Afternoon',    '13:00', '15:00', 3),
   ('Slot 4 – Late Afternoon','15:15','17:15', 4);
 
 -- Users (password: Password@123)
 -- bcrypt hash of 'Password@123' with 12 rounds
-INSERT INTO users (id, email, password_hash, full_name, role, is_active, email_verified, department) VALUES
-  ('11111111-0000-0000-0000-000000000001', 'admin@training.vn',      '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'System Admin',      'ADMIN',    true, true, 'IT'),
-  ('22222222-0000-0000-0000-000000000001', 'approver1@training.vn',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Nguyen Van Approver','APPROVER', true, true, 'Management'),
-  ('22222222-0000-0000-0000-000000000002', 'approver2@training.vn',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Tran Thi Approver', 'APPROVER', true, true, 'Management'),
-  ('33333333-0000-0000-0000-000000000001', 'reviewer1@training.vn',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Le Van Reviewer',   'REVIEWER', true, true, 'Academic'),
-  ('33333333-0000-0000-0000-000000000002', 'reviewer2@training.vn',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Pham Thi Reviewer', 'REVIEWER', true, true, 'Academic'),
-  ('33333333-0000-0000-0000-000000000003', 'reviewer3@training.vn',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Hoang Van Reviewer','REVIEWER', true, true, 'Academic'),
-  ('44444444-0000-0000-0000-000000000001', 'creator1@training.vn',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Do Thi Creator',    'CREATOR',  true, true, 'Development'),
-  ('44444444-0000-0000-0000-000000000002', 'creator2@training.vn',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Vu Van Creator',    'CREATOR',  true, true, 'Development'),
-  ('44444444-0000-0000-0000-000000000003', 'creator3@training.vn',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Bui Thi Creator',   'CREATOR',  true, true, 'QA'),
-  ('44444444-0000-0000-0000-000000000004', 'creator4@training.vn',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Dang Van Creator',  'CREATOR',  false, true, 'QA');
+INSERT INTO users (id, email, username, password_hash, full_name, role, status, email_verified, department) VALUES
+  ('11111111-0000-0000-0000-000000000001', 'admin@training.vn',      'admin',      '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'System Admin',       'ADMIN',    'ACTIVE',   true, 'IT'),
+  ('22222222-0000-0000-0000-000000000001', 'approver1@training.vn',  'approver1',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Nguyen Van Approver','APPROVER', 'ACTIVE',   true, 'Management'),
+  ('22222222-0000-0000-0000-000000000002', 'approver2@training.vn',  'approver2',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Tran Thi Approver',  'APPROVER', 'ACTIVE',   true, 'Management'),
+  ('33333333-0000-0000-0000-000000000001', 'reviewer1@training.vn',  'reviewer1',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Le Van Reviewer',    'REVIEWER', 'ACTIVE',   true, 'Academic'),
+  ('33333333-0000-0000-0000-000000000002', 'reviewer2@training.vn',  'reviewer2',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Pham Thi Reviewer',  'REVIEWER', 'ACTIVE',   true, 'Academic'),
+  ('33333333-0000-0000-0000-000000000003', 'reviewer3@training.vn',  'reviewer3',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Hoang Van Reviewer', 'REVIEWER', 'ACTIVE',   true, 'Academic'),
+  ('44444444-0000-0000-0000-000000000001', 'creator1@training.vn',   'creator1',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Do Thi Creator',     'CREATOR',  'ACTIVE',   true, 'Development'),
+  ('44444444-0000-0000-0000-000000000002', 'creator2@training.vn',   'creator2',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Vu Van Creator',     'CREATOR',  'ACTIVE',   true, 'Development'),
+  ('44444444-0000-0000-0000-000000000003', 'creator3@training.vn',   'creator3',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Bui Thi Creator',    'CREATOR',  'ACTIVE',   true, 'QA'),
+  ('44444444-0000-0000-0000-000000000004', 'creator4@training.vn',   'creator4',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Dang Van Creator',   'CREATOR',  'INACTIVE', true, 'QA');
 
--- Classrooms
-INSERT INTO classes (id, name, location, capacity, description, equipment) VALUES
+-- Classrooms (use status enum instead of is_active)
+INSERT INTO classes (id, name, location, capacity, description, equipment, status) VALUES
   ('aaaaaaaa-0000-0000-0000-000000000001', 'Room A101', 'Building A - Floor 1', 30,
    'Main testing lab with individual workstations',
-   '{"projector": true, "whiteboard": true, "ac": true, "computers": 30, "network": "100Mbps"}'),
+   '{"projector": true, "whiteboard": true, "ac": true, "computers": 30, "network": "100Mbps"}', 'AVAILABLE'),
   ('aaaaaaaa-0000-0000-0000-000000000002', 'Room B205', 'Building B - Floor 2', 20,
    'Mid-size seminar room',
-   '{"projector": true, "whiteboard": true, "ac": true, "computers": 20, "network": "100Mbps"}'),
+   '{"projector": true, "whiteboard": true, "ac": true, "computers": 20, "network": "100Mbps"}', 'AVAILABLE'),
   ('aaaaaaaa-0000-0000-0000-000000000003', 'Room C301', 'Building C - Floor 3', 15,
    'Small workshop room',
-   '{"projector": true, "whiteboard": true, "ac": true, "computers": 15, "network": "50Mbps"}'),
+   '{"projector": true, "whiteboard": true, "ac": true, "computers": 15, "network": "50Mbps"}', 'AVAILABLE'),
   ('aaaaaaaa-0000-0000-0000-000000000004', 'Hall D001', 'Building D - Ground', 60,
    'Large conference hall',
-   '{"projector": true, "screen": true, "ac": true, "microphone": true, "computers": 0}'),
+   '{"projector": true, "screen": true, "ac": true, "microphone": true, "computers": 0}', 'AVAILABLE'),
   ('aaaaaaaa-0000-0000-0000-000000000005', 'Room E102', 'Building E - Floor 1', 25,
    'Automation testing lab',
-   '{"projector": true, "whiteboard": true, "ac": true, "computers": 25, "network": "1Gbps", "selenium_grid": true}');
+   '{"projector": true, "whiteboard": true, "ac": true, "computers": 25, "network": "1Gbps", "selenium_grid": true}', 'AVAILABLE');
 
 -- System Config
 INSERT INTO system_config (key, value, description) VALUES
-  ('booking_advance_days', '30', 'Max days ahead a booking can be made'),
-  ('booking_min_notice_hours', '24', 'Min hours notice required before booking date'),
-  ('max_bookings_per_week_creator', '5', 'Max active bookings a creator can have per week'),
-  ('maintenance_mode', 'false', 'System maintenance flag'),
-  ('app_name', 'Class Booking System', 'Application display name'),
-  ('timezone', 'Asia/Ho_Chi_Minh', 'System timezone');
+  ('booking_advance_days',          '30',                  'Max days ahead a booking can be made'),
+  ('booking_min_notice_hours',      '2',                   'Min hours notice required before slot starts'),
+  ('max_bookings_per_week_creator', '5',                   'Max active bookings a creator can have per week'),
+  ('maintenance_mode',              'false',               'System maintenance flag'),
+  ('app_name',                      'Class Booking System','Application display name'),
+  ('timezone',                      'Asia/Ho_Chi_Minh',   'System timezone');
 
--- Bookings (various statuses for training)
+-- Bookings (various statuses for training/testing)
 INSERT INTO bookings (id, creator_id, class_id, date, slot_id, purpose, course_name, attendee_count, status, reviewer_id, approver_id, submitted_at, approved_at) VALUES
-  -- APPROVED bookings
+  -- APPROVED
   ('bbbbbbbb-0000-0000-0000-000000000001',
    '44444444-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001',
    CURRENT_DATE + 3, 1, 'Manual Testing Fundamentals training session', 'Manual Testing 101', 25,
@@ -66,7 +66,7 @@ INSERT INTO bookings (id, creator_id, class_id, date, slot_id, purpose, course_n
    'APPROVED', '33333333-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000000002',
    NOW() - INTERVAL '5 days', NOW() - INTERVAL '2 days'),
 
-  -- PENDING_REVIEW bookings
+  -- PENDING_REVIEW
   ('bbbbbbbb-0000-0000-0000-000000000003',
    '44444444-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000005',
    CURRENT_DATE + 7, 3, 'Selenium WebDriver automation lab', 'Test Automation Level 1', 20,
@@ -79,34 +79,34 @@ INSERT INTO bookings (id, creator_id, class_id, date, slot_id, purpose, course_n
    'PENDING_REVIEW', NULL, NULL,
    NOW() - INTERVAL '2 hours', NULL),
 
-  -- IN_REVIEW bookings
+  -- IN_REVIEW
   ('bbbbbbbb-0000-0000-0000-000000000005',
    '44444444-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000001',
    CURRENT_DATE + 10, 4, 'Security testing methodologies overview', 'Security Testing Basics', 28,
    'IN_REVIEW', '33333333-0000-0000-0000-000000000003', NULL,
    NOW() - INTERVAL '6 hours', NULL),
 
-  -- PENDING_APPROVAL bookings
+  -- PENDING_APPROVAL
   ('bbbbbbbb-0000-0000-0000-000000000006',
    '44444444-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000002',
    CURRENT_DATE + 8, 2, 'Mobile testing on Android emulators', 'Mobile Testing Fundamentals', 15,
    'PENDING_APPROVAL', '33333333-0000-0000-0000-000000000001', NULL,
    NOW() - INTERVAL '2 days', NULL),
 
-  -- REJECTED bookings
+  -- REJECTED
   ('bbbbbbbb-0000-0000-0000-000000000007',
    '44444444-0000-0000-0000-000000000004', 'aaaaaaaa-0000-0000-0000-000000000004',
    CURRENT_DATE + 2, 1, 'Test planning session', 'Test Management', 55,
    'REJECTED', '33333333-0000-0000-0000-000000000002', NULL,
    NOW() - INTERVAL '4 days', NULL),
 
-  -- DRAFT booking
+  -- DRAFT
   ('bbbbbbbb-0000-0000-0000-000000000008',
    '44444444-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000003',
    CURRENT_DATE + 14, 1, 'BDD with Cucumber intro', 'BDD Testing', 10,
    'DRAFT', NULL, NULL, NULL, NULL),
 
-  -- CANCELLED booking
+  -- CANCELLED
   ('bbbbbbbb-0000-0000-0000-000000000009',
    '44444444-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000001',
    CURRENT_DATE + 1, 2, 'Test case design techniques', 'Test Design Masterclass', 22,
@@ -116,26 +116,33 @@ INSERT INTO bookings (id, creator_id, class_id, date, slot_id, purpose, course_n
 -- Booking Logs (audit trail)
 INSERT INTO booking_logs (booking_id, actor_id, from_status, to_status, comment) VALUES
   -- Booking 1 full trail
-  ('bbbbbbbb-0000-0000-0000-000000000001', '44444444-0000-0000-0000-000000000001', 'DRAFT', 'PENDING_REVIEW', 'Submitted for review'),
-  ('bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000001', 'PENDING_REVIEW', 'IN_REVIEW', 'Claimed by reviewer'),
-  ('bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000001', 'IN_REVIEW', 'PENDING_APPROVAL', 'All checks passed, forwarding to approver'),
-  ('bbbbbbbb-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000000001', 'PENDING_APPROVAL', 'APPROVED', 'Approved. Room confirmed.'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', '44444444-0000-0000-0000-000000000001', 'DRAFT',           'PENDING_REVIEW',   'Submitted for review'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000001', 'PENDING_REVIEW',  'IN_REVIEW',        'Claimed by reviewer'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000001', 'IN_REVIEW',       'PENDING_APPROVAL', 'All checks passed, forwarding to approver'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000000001', 'PENDING_APPROVAL','APPROVED',         'Approved. Room confirmed.'),
+  -- Booking 2
+  ('bbbbbbbb-0000-0000-0000-000000000002', '44444444-0000-0000-0000-000000000002', 'DRAFT',           'PENDING_REVIEW',   'Submitted'),
+  ('bbbbbbbb-0000-0000-0000-000000000002', '33333333-0000-0000-0000-000000000002', 'PENDING_REVIEW',  'IN_REVIEW',        'Claimed'),
+  ('bbbbbbbb-0000-0000-0000-000000000002', '33333333-0000-0000-0000-000000000002', 'IN_REVIEW',       'PENDING_APPROVAL', 'Verified, forwarding'),
+  ('bbbbbbbb-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000000002', 'PENDING_APPROVAL','APPROVED',         'Approved'),
   -- Booking 3
-  ('bbbbbbbb-0000-0000-0000-000000000003', '44444444-0000-0000-0000-000000000001', 'DRAFT', 'PENDING_REVIEW', 'Ready for review'),
+  ('bbbbbbbb-0000-0000-0000-000000000003', '44444444-0000-0000-0000-000000000001', 'DRAFT',           'PENDING_REVIEW',   'Ready for review'),
+  -- Booking 4
+  ('bbbbbbbb-0000-0000-0000-000000000004', '44444444-0000-0000-0000-000000000003', 'DRAFT',           'PENDING_REVIEW',   'Submitted'),
   -- Booking 5
-  ('bbbbbbbb-0000-0000-0000-000000000005', '44444444-0000-0000-0000-000000000002', 'DRAFT', 'PENDING_REVIEW', 'Submitted'),
-  ('bbbbbbbb-0000-0000-0000-000000000005', '33333333-0000-0000-0000-000000000003', 'PENDING_REVIEW', 'IN_REVIEW', 'Under review'),
+  ('bbbbbbbb-0000-0000-0000-000000000005', '44444444-0000-0000-0000-000000000002', 'DRAFT',           'PENDING_REVIEW',   'Submitted'),
+  ('bbbbbbbb-0000-0000-0000-000000000005', '33333333-0000-0000-0000-000000000003', 'PENDING_REVIEW',  'IN_REVIEW',        'Under review'),
   -- Booking 6
-  ('bbbbbbbb-0000-0000-0000-000000000006', '44444444-0000-0000-0000-000000000003', 'DRAFT', 'PENDING_REVIEW', 'Submitted'),
-  ('bbbbbbbb-0000-0000-0000-000000000006', '33333333-0000-0000-0000-000000000001', 'PENDING_REVIEW', 'IN_REVIEW', 'Claimed'),
-  ('bbbbbbbb-0000-0000-0000-000000000006', '33333333-0000-0000-0000-000000000001', 'IN_REVIEW', 'PENDING_APPROVAL', 'Verified and forwarded'),
+  ('bbbbbbbb-0000-0000-0000-000000000006', '44444444-0000-0000-0000-000000000003', 'DRAFT',           'PENDING_REVIEW',   'Submitted'),
+  ('bbbbbbbb-0000-0000-0000-000000000006', '33333333-0000-0000-0000-000000000001', 'PENDING_REVIEW',  'IN_REVIEW',        'Claimed'),
+  ('bbbbbbbb-0000-0000-0000-000000000006', '33333333-0000-0000-0000-000000000001', 'IN_REVIEW',       'PENDING_APPROVAL', 'Verified and forwarded'),
   -- Booking 7 (rejected)
-  ('bbbbbbbb-0000-0000-0000-000000000007', '44444444-0000-0000-0000-000000000004', 'DRAFT', 'PENDING_REVIEW', 'Submitted'),
-  ('bbbbbbbb-0000-0000-0000-000000000007', '33333333-0000-0000-0000-000000000002', 'PENDING_REVIEW', 'IN_REVIEW', 'Claimed'),
-  ('bbbbbbbb-0000-0000-0000-000000000007', '33333333-0000-0000-0000-000000000002', 'IN_REVIEW', 'REJECTED', 'Hall D001 requires special setup. Please resubmit with 48h notice.'),
+  ('bbbbbbbb-0000-0000-0000-000000000007', '44444444-0000-0000-0000-000000000004', 'DRAFT',           'PENDING_REVIEW',   'Submitted'),
+  ('bbbbbbbb-0000-0000-0000-000000000007', '33333333-0000-0000-0000-000000000002', 'PENDING_REVIEW',  'IN_REVIEW',        'Claimed'),
+  ('bbbbbbbb-0000-0000-0000-000000000007', '33333333-0000-0000-0000-000000000002', 'IN_REVIEW',       'REJECTED',         'Hall D001 requires special setup. Please resubmit with 48h notice.'),
   -- Booking 9 (cancelled)
-  ('bbbbbbbb-0000-0000-0000-000000000009', '44444444-0000-0000-0000-000000000002', 'DRAFT', 'PENDING_REVIEW', 'Submitted'),
-  ('bbbbbbbb-0000-0000-0000-000000000009', '44444444-0000-0000-0000-000000000002', 'PENDING_REVIEW', 'CANCELLED', 'Trainer unavailable, cancelling.');
+  ('bbbbbbbb-0000-0000-0000-000000000009', '44444444-0000-0000-0000-000000000002', 'DRAFT',           'PENDING_REVIEW',   'Submitted'),
+  ('bbbbbbbb-0000-0000-0000-000000000009', '44444444-0000-0000-0000-000000000002', 'PENDING_REVIEW',  'CANCELLED',        'Trainer unavailable, cancelling.');
 
 -- Notifications
 INSERT INTO notifications (user_id, booking_id, type, title, message) VALUES
@@ -150,7 +157,7 @@ INSERT INTO notifications (user_id, booking_id, type, title, message) VALUES
    'Booking "Mobile testing on Android emulators" has been reviewed and needs your approval.'),
   ('44444444-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
    'BOOKING_APPROVED', 'Your Booking was Approved!',
-   'Great news! Your booking for Room A101 on the upcoming date has been approved.'),
+   'Great news! Your booking for Room A101 has been approved.'),
   ('44444444-0000-0000-0000-000000000004', 'bbbbbbbb-0000-0000-0000-000000000007',
    'BOOKING_REJECTED', 'Booking Rejected',
    'Your booking for Hall D001 was rejected. Reason: Requires 48h advance notice.');

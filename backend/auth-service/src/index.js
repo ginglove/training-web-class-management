@@ -1,10 +1,12 @@
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
+}
 const express = require('express');
 const morgan  = require('morgan');
 const authRoutes = require('./routes/auth');
 
 const app  = express();
-const PORT = process.env.PORT || 8001;
+const PORT = process.env.AUTH_SERVICE_PORT || 8011;
 
 app.use(morgan('dev'));
 app.use(express.json());

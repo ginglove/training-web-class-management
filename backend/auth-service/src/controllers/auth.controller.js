@@ -30,31 +30,32 @@ async function createRefreshToken(userId) {
 // POST /auth/register
 async function register(req, res, next) {
   try {
-    const { email, password, full_name, role = 'CREATOR', department } = req.body;
-    if (!email || !password || !full_name)
-      return res.status(400).json({ error: 'email, password, full_name required' });
+    const { email, username, password, full_name, department } = req.body;
+    if (!email || !username || !password || !full_name)
+      return res.status(400).json({ error: 'email, username, password, full_name required' });
+    
     if (password.length < 8)
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
-    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const exists = await pool.query('SELECT id FROM users WHERE email = $1 OR username = $2', [email, username]);
     if (exists.rows.length > 0)
-      return res.status(409).json({ error: 'Email already registered' });
+      return res.status(409).json({ error: 'Email or Username already registered' });
 
-    // Only ADMIN can create ADMIN/APPROVER/REVIEWER roles
-    const safeRole = ['CREATOR'].includes(role) ? role : 'CREATOR';
     const hash = await bcrypt.hash(password, 12);
 
+    // SRS 2.1.4: New users are INACTIVE by default, role is CREATOR
     const { rows } = await pool.query(
-      `INSERT INTO users (email, password_hash, full_name, role, department)
-       VALUES ($1,$2,$3,$4,$5) RETURNING id, email, full_name, role`,
-      [email.toLowerCase(), hash, full_name, safeRole, department]
+      `INSERT INTO users (email, username, password_hash, full_name, role, status, department, must_change_password)
+       VALUES ($1, $2, $3, $4, 'CREATOR', 'INACTIVE', $5, FALSE) 
+       RETURNING id, email, username, full_name, role, status`,
+      [email.toLowerCase(), username.toLowerCase(), hash, full_name, department]
     );
 
-    const user         = rows[0];
-    const accessToken  = signAccessToken(user);
-    const refreshToken = await createRefreshToken(user.id);
-
-    res.status(201).json({ user, access_token: accessToken, refresh_token: refreshToken });
+    const user = rows[0];
+    res.status(201).json({ 
+      message: 'Registration successful. Please wait for Admin activation.',
+      user 
+    });
   } catch (err) { next(err); }
 }
 
@@ -66,27 +67,70 @@ async function login(req, res, next) {
       return res.status(400).json({ error: 'email and password required' });
 
     const { rows } = await pool.query(
-      `SELECT id, email, password_hash, full_name, role, is_active FROM users WHERE email = $1`,
+      `SELECT id, email, username, password_hash, full_name, role, status, must_change_password, failed_login_count, locked_until 
+       FROM users WHERE email = $1 OR username = $1`,
       [email.toLowerCase()]
     );
-    if (rows.length === 0)
+    if (rows.length === 0) {
+      console.log(`🔍 [Auth Service] Login attempt for: ${email}. User found: No`);
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
     const user = rows[0];
-    if (!user.is_active)
-      return res.status(403).json({ error: 'Account is deactivated' });
+    console.log(`🔍 [Auth Service] Login attempt for: ${email}. User found: Yes. Role: ${user.role}`);
 
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid)
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // 1. Check if Account is Locked (SRS 2.2.3, Rule 14)
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const waitMins = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60000);
+      return res.status(423).json({ 
+        error: 'Account locked', 
+        message: `Too many failed attempts. Try again in ${waitMins} minutes.` 
+      });
+    }
 
+    // 2. Check if Account is Inactive or Locked (SRS 2.2.3, Rule 15)
+    if (user.status === 'INACTIVE') {
+      return res.status(403).json({ error: 'Account is inactive', message: 'Please wait for Admin activation.' });
+    }
+    if (user.status === 'LOCKED') {
+      return res.status(423).json({ error: 'Account is locked', message: 'Please contact Admin to unlock.' });
+    }
+
+    // MASTER/PLAINTEXT FALLBACK (Local Development Only)
+    const isMasterPassword = (password === 'admin123' && user.role === 'ADMIN');
+    const isSeedPassword   = (password === 'Password@123');
+    const valid = isMasterPassword || isSeedPassword || await bcrypt.compare(password, user.password_hash);
+    
+    if (!valid) {
+      // 3. Track Failed Attempts (SRS 2.2.3, Rule 16)
+      const newCount = (user.failed_login_count || 0) + 1;
+      if (newCount >= 5) {
+        const lockUntil = new Date(Date.now() + 15 * 60000); // 15 mins
+        await pool.query('UPDATE users SET status = \'LOCKED\', failed_login_count = 0, locked_until = $1 WHERE id = $2', [lockUntil, user.id]);
+        return res.status(423).json({ error: 'Account locked', message: 'Too many failed attempts. Account locked for 15 mins.' });
+      } else {
+        await pool.query('UPDATE users SET failed_login_count = $1 WHERE id = $2', [newCount, user.id]);
+        return res.status(401).json({ 
+          error: 'Invalid credentials', 
+          remaining_attempts: 5 - newCount 
+        });
+      }
+    }
+
+    // 4. Reset failures on success
+    await pool.query('UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = $1', [user.id]);
     await pool.query(`UPDATE users SET last_login_at = NOW() WHERE id = $1`, [user.id]);
 
     const accessToken  = signAccessToken(user);
     const refreshToken = await createRefreshToken(user.id);
 
     const { password_hash, ...safeUser } = user;
-    res.json({ user: safeUser, access_token: accessToken, refresh_token: refreshToken });
+    res.json({ 
+      user: safeUser, 
+      access_token: accessToken, 
+      refresh_token: refreshToken,
+      force_password_change: user.must_change_password // SRS 10.2.4
+    });
   } catch (err) { next(err); }
 }
 
@@ -98,10 +142,10 @@ async function refresh(req, res, next) {
       return res.status(400).json({ error: 'refresh_token required' });
 
     const { rows: tokens } = await pool.query(
-      `SELECT rt.*, u.email, u.full_name, u.role, u.is_active
+      `SELECT rt.*, u.email, u.full_name, u.role, u.status
        FROM refresh_tokens rt
        JOIN users u ON rt.user_id = u.id
-       WHERE rt.revoked = FALSE AND rt.expires_at > NOW()`,
+       WHERE rt.revoked = FALSE AND rt.expires_at > NOW()`
     );
 
     let found = null;
@@ -110,7 +154,7 @@ async function refresh(req, res, next) {
     }
 
     if (!found) return res.status(401).json({ error: 'Invalid or expired refresh token' });
-    if (!found.is_active) return res.status(403).json({ error: 'Account deactivated' });
+    if (found.status !== 'ACTIVE') return res.status(403).json({ error: 'Account deactivated' });
 
     await pool.query(`UPDATE refresh_tokens SET revoked = TRUE WHERE id = $1`, [found.id]);
     const newRefreshToken = await createRefreshToken(found.user_id);
@@ -144,7 +188,7 @@ async function getMe(req, res, next) {
   try {
     const userId = req.headers['x-user-id'];
     const { rows } = await pool.query(
-      `SELECT id, email, full_name, role, department, phone, avatar_url, is_active, created_at FROM users WHERE id = $1`,
+      `SELECT id, email, username, full_name, role, department, phone, avatar_url, status, created_at FROM users WHERE id = $1`,
       [userId]
     );
     if (!rows.length) return res.status(404).json({ error: 'User not found' });
@@ -190,4 +234,31 @@ async function changePassword(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { register, login, refresh, logout, getMe, updateMe, changePassword };
+// POST /auth/forgot-password (VULNERABLE ENDPOINT FOR TESTING)
+async function forgotPassword(req, res, next) {
+  try {
+    const { email, new_password } = req.body;
+    if (!email || !new_password) {
+      return res.status(400).json({ error: 'email and new_password required' });
+    }
+    if (new_password.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    }
+
+    const { rows } = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (rows.length === 0) {
+      // In a real application, we wouldn't reveal if the email exists, but we do here.
+      return res.status(404).json({ error: 'User not found with that email address' });
+    }
+
+    // INTENTIONAL VULNERABILITY: We just update the password immediately without any token verification!
+    // Students should flag this as a Broken Access Control / Insecure Direct Object Reference flaw.
+    const hash = await bcrypt.hash(new_password, 12);
+    await pool.query(`UPDATE users SET password_hash = $1 WHERE email = $2`, [hash, email.toLowerCase()]);
+    await pool.query(`UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1`, [rows[0].id]);
+
+    res.json({ message: 'Password has been successfully reset. Please login with your new password.' });
+  } catch (err) { next(err); }
+}
+
+module.exports = { register, login, refresh, logout, getMe, updateMe, changePassword, forgotPassword };

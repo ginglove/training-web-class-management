@@ -20,22 +20,6 @@ services:
       timeout: 5s
       retries: 10
 
-  gateway:
-    build: ./backend/gateway
-    container_name: class-booking-gateway
-    ports:
-      - "8000:8000"
-    environment:
-      PORT: 8000
-      FRONTEND_URL: http://localhost:3000
-      AUTH_SERVICE_URL: http://auth-service:8001
-      BOOKING_SERVICE_URL: http://booking-service:8002
-      NOTIF_SERVICE_URL: http://notification-service:8003
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-prod}
-    depends_on:
-      - auth-service
-      - booking-service
-      - notification-service
 
   auth-service:
     build: ./backend/auth-service

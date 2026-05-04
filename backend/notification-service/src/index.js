@@ -1,11 +1,13 @@
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
+}
 const express = require('express');
 const morgan  = require('morgan');
 const { Pool } = require('pg');
 const { requireAuth } = require('../../shared/middleware/auth');
 
 const app  = express();
-const PORT = process.env.PORT || 8003;
+const PORT = process.env.NOTIF_SERVICE_PORT || 8013;
 
 app.use(morgan('dev'));
 app.use(express.json());

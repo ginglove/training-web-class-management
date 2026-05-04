@@ -1,6 +1,6 @@
 -- =============================================================
 -- CLASS BOOKING MANAGEMENT SYSTEM
--- Database Schema v3.0
+-- Database Schema v3.1 (Fixed — aligned with backend code)
 -- PostgreSQL 15+
 -- =============================================================
 
@@ -13,6 +13,10 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- =============================================================
 
 CREATE TYPE user_role AS ENUM ('ADMIN', 'APPROVER', 'REVIEWER', 'CREATOR');
+
+CREATE TYPE user_status AS ENUM ('ACTIVE', 'INACTIVE', 'LOCKED');
+
+CREATE TYPE class_status AS ENUM ('AVAILABLE', 'MAINTENANCE', 'CLOSED');
 
 CREATE TYPE booking_status AS ENUM (
   'DRAFT',
@@ -40,28 +44,39 @@ CREATE TYPE notification_type AS ENUM (
 
 -- -------------------------------------------------------------
 -- USERS
+-- Added: username, status (ACTIVE/INACTIVE/LOCKED)
+-- Removed: is_active (replaced by status enum)
 -- -------------------------------------------------------------
 CREATE TABLE users (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  email         VARCHAR(255) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
-  full_name     VARCHAR(255) NOT NULL,
-  role          user_role NOT NULL DEFAULT 'CREATOR',
-  is_active     BOOLEAN NOT NULL DEFAULT TRUE,
-  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
-  phone         VARCHAR(20),
-  department    VARCHAR(100),
-  avatar_url    VARCHAR(500),
-  last_login_at TIMESTAMPTZ,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email               VARCHAR(255) NOT NULL UNIQUE,
+  username            VARCHAR(100) NOT NULL UNIQUE,
+  password_hash       VARCHAR(255) NOT NULL,
+  full_name           VARCHAR(255) NOT NULL,
+  role                user_role NOT NULL DEFAULT 'CREATOR',
+  status              user_status NOT NULL DEFAULT 'ACTIVE',
+  email_verified      BOOLEAN NOT NULL DEFAULT FALSE,
+  phone               VARCHAR(20),
+  department          VARCHAR(100),
+  avatar_url          VARCHAR(500),
+  must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
+  failed_login_count  INTEGER NOT NULL DEFAULT 0,
+  locked_until        TIMESTAMPTZ,
+  last_login_at       TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at          TIMESTAMPTZ
 );
 
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_email    ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_role     ON users(role);
+CREATE INDEX idx_users_status   ON users(status);
 
 -- -------------------------------------------------------------
 -- CLASSES (Rooms)
+-- Added: status enum (AVAILABLE/MAINTENANCE/CLOSED)
+-- Removed: is_active (replaced by status)
 -- -------------------------------------------------------------
 CREATE TABLE classes (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -70,13 +85,12 @@ CREATE TABLE classes (
   capacity    INTEGER NOT NULL CHECK (capacity > 0),
   description TEXT,
   equipment   JSONB NOT NULL DEFAULT '{}',
-  -- equipment example: {"projector": true, "whiteboard": true, "ac": true, "computers": 30}
-  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  status      class_status NOT NULL DEFAULT 'AVAILABLE',
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_classes_active ON classes(is_active);
+CREATE INDEX idx_classes_status ON classes(status);
 
 -- -------------------------------------------------------------
 -- TIME SLOTS
@@ -92,6 +106,8 @@ CREATE TABLE time_slots (
 
 -- -------------------------------------------------------------
 -- BOOKINGS
+-- Uses date + slot_id (NOT start_datetime)
+-- Added: reviewer_note, approver_note, rejection_reason
 -- -------------------------------------------------------------
 CREATE TABLE bookings (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -107,6 +123,7 @@ CREATE TABLE bookings (
   approver_id     UUID REFERENCES users(id) ON DELETE SET NULL,
   reviewer_note   TEXT,
   approver_note   TEXT,
+  rejection_reason TEXT,
   submitted_at    TIMESTAMPTZ,
   approved_at     TIMESTAMPTZ,
   rejected_at     TIMESTAMPTZ,
@@ -115,11 +132,11 @@ CREATE TABLE bookings (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_bookings_creator ON bookings(creator_id);
+CREATE INDEX idx_bookings_creator    ON bookings(creator_id);
 CREATE INDEX idx_bookings_class_date ON bookings(class_id, date);
-CREATE INDEX idx_bookings_status ON bookings(status);
-CREATE INDEX idx_bookings_reviewer ON bookings(reviewer_id);
-CREATE INDEX idx_bookings_date ON bookings(date);
+CREATE INDEX idx_bookings_status     ON bookings(status);
+CREATE INDEX idx_bookings_reviewer   ON bookings(reviewer_id);
+CREATE INDEX idx_bookings_date       ON bookings(date);
 
 -- Prevent double-booking: unique constraint on (class, date, slot) for active bookings
 CREATE UNIQUE INDEX idx_bookings_no_conflict
@@ -127,7 +144,7 @@ CREATE UNIQUE INDEX idx_bookings_no_conflict
   WHERE status NOT IN ('CANCELLED', 'REJECTED');
 
 -- -------------------------------------------------------------
--- BOOKING LOGS (Audit trail)
+-- BOOKING LOGS (Audit trail — replaces calendar_blocks)
 -- -------------------------------------------------------------
 CREATE TABLE booking_logs (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -140,7 +157,7 @@ CREATE TABLE booking_logs (
 );
 
 CREATE INDEX idx_booking_logs_booking ON booking_logs(booking_id);
-CREATE INDEX idx_booking_logs_actor ON booking_logs(actor_id);
+CREATE INDEX idx_booking_logs_actor   ON booking_logs(actor_id);
 
 -- -------------------------------------------------------------
 -- NOTIFICATIONS
@@ -156,7 +173,7 @@ CREATE TABLE notifications (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
+CREATE INDEX idx_notifications_user    ON notifications(user_id, is_read);
 CREATE INDEX idx_notifications_booking ON notifications(booking_id);
 
 -- -------------------------------------------------------------
@@ -181,14 +198,14 @@ CREATE TABLE email_tokens (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token      VARCHAR(255) NOT NULL UNIQUE,
-  type       VARCHAR(50) NOT NULL, -- 'VERIFY_EMAIL' | 'RESET_PASSWORD' | 'OTP_2FA'
+  type       VARCHAR(50) NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   used       BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_email_tokens_token ON email_tokens(token);
-CREATE INDEX idx_email_tokens_user ON email_tokens(user_id);
+CREATE INDEX idx_email_tokens_user  ON email_tokens(user_id);
 
 -- -------------------------------------------------------------
 -- SYSTEM CONFIGURATION
@@ -199,25 +216,6 @@ CREATE TABLE system_config (
   description TEXT,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- -------------------------------------------------------------
--- AUDIT LOGS (Admin trail)
--- -------------------------------------------------------------
-CREATE TABLE audit_logs (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  actor_id    UUID REFERENCES users(id) ON DELETE SET NULL,
-  action      VARCHAR(100) NOT NULL,
-  entity_type VARCHAR(50) NOT NULL,
-  entity_id   UUID,
-  details     JSONB DEFAULT '{}',
-  ip_address  INET,
-  user_agent  TEXT,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_audit_logs_actor ON audit_logs(actor_id);
-CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
-CREATE INDEX idx_audit_logs_created ON audit_logs(created_at DESC);
 
 -- =============================================================
 -- FUNCTIONS & TRIGGERS
@@ -279,39 +277,51 @@ SELECT
   b.purpose,
   b.course_name,
   b.attendee_count,
+  b.reviewer_note,
+  b.approver_note,
+  b.rejection_reason,
   b.created_at,
   b.submitted_at,
   b.approved_at,
+  b.rejected_at,
+  b.cancelled_at,
+  b.creator_id,
+  b.reviewer_id,
+  b.approver_id,
+  b.class_id,
+  b.slot_id,
   -- Creator
-  u_creator.full_name  AS creator_name,
-  u_creator.email      AS creator_email,
-  u_creator.department AS creator_department,
+  u_creator.full_name   AS creator_name,
+  u_creator.email       AS creator_email,
+  u_creator.department  AS creator_department,
   -- Room
-  c.name               AS class_name,
-  c.location           AS class_location,
-  c.capacity           AS class_capacity,
+  c.name                AS class_name,
+  c.location            AS class_location,
+  c.capacity            AS class_capacity,
+  c.status              AS class_status,
   -- Slot
   ts.slot_name,
   ts.start_time,
   ts.end_time,
   -- Reviewer
-  u_reviewer.full_name AS reviewer_name,
+  u_reviewer.full_name  AS reviewer_name,
   -- Approver
-  u_approver.full_name AS approver_name
+  u_approver.full_name  AS approver_name
 FROM bookings b
-JOIN users u_creator      ON b.creator_id = u_creator.id
-JOIN classes c            ON b.class_id   = c.id
-JOIN time_slots ts        ON b.slot_id    = ts.id
+JOIN users u_creator       ON b.creator_id  = u_creator.id
+JOIN classes c             ON b.class_id    = c.id
+JOIN time_slots ts         ON b.slot_id     = ts.id
 LEFT JOIN users u_reviewer ON b.reviewer_id = u_reviewer.id
 LEFT JOIN users u_approver ON b.approver_id = u_approver.id;
 
--- Room availability view for a given date (use with WHERE date = '...')
+-- Room availability view
 CREATE OR REPLACE VIEW room_slot_usage AS
 SELECT
   c.id        AS class_id,
   c.name      AS class_name,
   c.location,
   c.capacity,
+  c.status    AS class_status,
   ts.id       AS slot_id,
   ts.slot_name,
   ts.start_time,
@@ -326,4 +336,4 @@ LEFT JOIN bookings b ON b.class_id = c.id
   AND b.slot_id = ts.id
   AND b.status NOT IN ('CANCELLED', 'REJECTED')
 LEFT JOIN users u ON b.creator_id = u.id
-WHERE c.is_active = TRUE;
+WHERE c.status = 'AVAILABLE';

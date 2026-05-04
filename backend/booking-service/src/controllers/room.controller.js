@@ -4,7 +4,7 @@ const pool = require('../db');
 async function list(req, res, next) {
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM classes WHERE is_active = TRUE ORDER BY name`
+      `SELECT * FROM classes WHERE status = 'AVAILABLE' ORDER BY name`
     );
     res.json(rows);
   } catch (err) { next(err); }
