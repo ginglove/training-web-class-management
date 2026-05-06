@@ -80,15 +80,6 @@ export default function ApproverQueuePage() {
     }
   };
 
-  const handleUnclaim = async (id: string) => {
-    try {
-      await fetchApi(`/api/bookings/${id}/unclaim`, { method: 'PATCH' });
-      toast.success('Đã trả lại booking về hàng đợi Reviewer');
-      setBookings(prev => prev.filter(b => b.id !== id));
-    } catch (err) {
-      toast.error('Lỗi khi trả lại booking');
-    }
-  };
 
   const getWaitBadge = (forwardedAt: string) => {
     if (!forwardedAt) return null;
