@@ -1,41 +1,41 @@
 {
   "version": 2,
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/auth(.*)",
-      "destination": "backend/auth-service/src/index.js"
+      "src": "/api/auth(/.*)?",
+      "dest": "backend/auth-service/src/index.js"
     },
     {
-      "source": "/api/bookings(.*)",
-      "destination": "backend/booking-service/src/index.js"
+      "src": "/api/bookings(/.*)?",
+      "dest": "backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/rooms(.*)",
-      "destination": "backend/booking-service/src/index.js"
+      "src": "/api/rooms(/.*)?",
+      "dest": "backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/admin(.*)",
-      "destination": "backend/booking-service/src/index.js"
+      "src": "/api/admin(/.*)?",
+      "dest": "backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/calendar(.*)",
-      "destination": "backend/booking-service/src/index.js"
+      "src": "/api/calendar(/.*)?",
+      "dest": "backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/reviewer(.*)",
-      "destination": "backend/booking-service/src/index.js"
+      "src": "/api/reviewer(/.*)?",
+      "dest": "backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/approver(.*)",
-      "destination": "backend/booking-service/src/index.js"
+      "src": "/api/approver(/.*)?",
+      "dest": "backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/notifications(.*)",
-      "destination": "backend/notification-service/src/index.js"
+      "src": "/api/notifications(/.*)?",
+      "dest": "backend/notification-service/src/index.js"
     },
     {
-      "source": "/(.*)",
-      "destination": "frontend/$1"
+      "src": "/(.*)",
+      "dest": "frontend/$1"
     }
   ],
   "builds": [
