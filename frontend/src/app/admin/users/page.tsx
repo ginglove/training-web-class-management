@@ -1,46 +1,46 @@
 'use client';
 
 import * as React from 'react';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { fetchApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { 
   Search, 
-  UserPlus, 
   Shield, 
   UserX, 
   UserCheck, 
-  MoreVertical, 
   X, 
   Mail, 
-  Briefcase, 
-  Tag,
   Sparkles,
   Users,
-  ChevronRight,
-  ShieldCheck,
   Building,
-  Save,
-  Trash2,
-  Lock,
-  ArrowUpRight
+  Save
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  full_name?: string;
+  role: string;
+  department?: string;
+  status: string;
+}
+
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuthStore();
-  const [users, setUsers] = React.useState<any[]>([]);
+  const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [editingUser, setEditingUser] = React.useState<any>(null);
+  const [editingUser, setEditingUser] = React.useState<User | null>(null);
   const [formData, setFormData] = React.useState({
     status: 'ACTIVE',
     user_role: 'CREATOR',
@@ -52,7 +52,7 @@ export default function AdminUsersPage() {
     try {
       const data = await fetchApi('/api/admin/users');
       setUsers(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Lỗi khi tải danh sách người dùng'));
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ export default function AdminUsersPage() {
     loadUsers();
   }, []);
 
-  const openModal = (user: any) => {
+  const openModal = (user: User) => {
     setFormErrors({});
     setEditingUser(user);
     setFormData({
@@ -84,7 +84,7 @@ export default function AdminUsersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate() || !editingUser) return;
 
     try {
       await fetchApi(`/api/admin/users/${editingUser.id}`, {
@@ -94,12 +94,12 @@ export default function AdminUsersPage() {
       toast.success('Cập nhật người dùng thành công');
       setIsModalOpen(false);
       loadUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Cập nhật thất bại'));
     }
   };
 
-  const handleToggleStatus = async (user: any) => {
+  const handleToggleStatus = async (user: User) => {
     if (user.id === currentUser?.id) {
       toast.error('Bạn không thể tự khóa tài khoản của chính mình! 🚫');
       return;
@@ -112,7 +112,7 @@ export default function AdminUsersPage() {
       });
       toast.success(`Người dùng đã được ${newStatus === 'ACTIVE' ? 'kích hoạt' : 'khóa'}`);
       loadUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Thao tác thất bại'));
     }
   };

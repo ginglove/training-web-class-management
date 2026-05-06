@@ -18,7 +18,7 @@ async function list(req, res, next) {
   try {
     const userId = req.user.sub;
     const role   = req.user.role;
-    const { status, date_from, date_to, page = 1, limit = 20 } = req.query;
+    const { status, date_from, date_to, page = 1, limit = 20, sort = 'newest', booker, class_id } = req.query;
     const offset = (page - 1) * limit;
 
     let where = [];
@@ -38,15 +38,26 @@ async function list(req, res, next) {
     if (status)    { where.push(`b.status = $${i++}`);     params.push(status); }
     if (date_from) { where.push(`b.date >= $${i++}`);      params.push(date_from); }
     if (date_to)   { where.push(`b.date <= $${i++}`);      params.push(date_to); }
+    if (booker)    { where.push(`bs.creator_name ILIKE $${i++}`); params.push(`%${booker}%`); }
+    if (class_id)  { where.push(`b.class_id = $${i++}`);   params.push(class_id); }
 
     const whereStr = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    // Sort mapping
+    const sortMap = {
+      oldest:    'b.submitted_at ASC NULLS LAST',
+      newest:    'b.created_at DESC',
+      date_asc:  'b.date ASC',
+      attendees: 'b.attendee_count DESC',
+    };
+    const orderBy = sortMap[sort] || 'b.submitted_at ASC NULLS LAST';
 
     const { rows } = await pool.query(
       `SELECT bs.*, COUNT(*) OVER() AS total_count
        FROM booking_summary bs
        JOIN bookings b ON b.id = bs.id
        ${whereStr}
-       ORDER BY b.created_at DESC
+       ORDER BY ${orderBy}
        LIMIT $${i++} OFFSET $${i++}`,
       [...params, limit, offset]
     );
@@ -71,7 +82,13 @@ async function getById(req, res, next) {
     // Authorization
     const b = rows[0];
     if (role === 'CREATOR' && b.creator_id !== userId)
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: 'ERR_CREATOR_CANNOT_SEE_OTHERS', message: 'Creator cố xem chi tiết booking người khác' });
+      
+    if (role === 'REVIEWER') {
+      if (b.reviewer_id && b.reviewer_id !== userId) {
+        return res.status(403).json({ error: 'ERR_BOOKING_NOT_IN_SCOPE', message: 'Booking không thuộc phạm vi Reviewer quản lý' });
+      }
+    }
 
     const { rows: logs } = await pool.query(
       `SELECT bl.*, u.full_name AS actor_name, u.role AS actor_role
@@ -192,20 +209,48 @@ async function claim(req, res, next) {
     const userId = req.user.sub;
     const role   = req.user.role;
     const { id } = req.params;
-    if (role !== 'REVIEWER') return res.status(403).json({ error: 'Only reviewers can claim' });
+    if (role !== 'REVIEWER') return res.status(403).json({ error: 'ERR_NOT_REVIEWER', message: 'Role không phải REVIEWER' });
 
     const { rows } = await pool.query(`SELECT * FROM bookings WHERE id = $1`, [id]);
-    if (!rows.length) return res.status(404).json({ error: 'Booking not found' });
-    if (rows[0].status !== 'PENDING_REVIEW') return res.status(400).json({ error: 'Booking is not pending review' });
+    if (!rows.length) return res.status(404).json({ error: 'ERR_BOOKING_NOT_FOUND', message: 'Booking không tồn tại' });
+    if (rows[0].status !== 'PENDING_REVIEW') {
+      if (rows[0].reviewer_id) return res.status(409).json({ error: 'ERR_ALREADY_CLAIMED', message: 'Booking đã bị Reviewer khác claim' });
+      return res.status(409).json({ error: 'ERR_WRONG_STATUS_FOR_CLAIM', message: 'Booking phải ở PENDING_REVIEW mới claim được' });
+    }
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(`UPDATE bookings SET status='IN_REVIEW', reviewer_id=$1 WHERE id=$2`, [userId, id]);
+      await client.query(`UPDATE bookings SET status='IN_REVIEW', reviewer_id=$1, claimed_at=NOW() WHERE id=$2`, [userId, id]);
+
       await addLog(client, { bookingId: id, actorId: userId, fromStatus: 'PENDING_REVIEW', toStatus: 'IN_REVIEW', comment: 'Claimed by reviewer' });
       await client.query('COMMIT');
       notify({ user_id: rows[0].creator_id, booking_id: id, type: 'BOOKING_CLAIMED', title: 'Booking Under Review', message: 'Your booking is now being reviewed.' });
       res.json({ message: 'Claimed', status: 'IN_REVIEW' });
+    } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
+  } catch (err) { next(err); }
+}
+
+// PATCH /bookings/:id/unclaim — REVIEWER: IN_REVIEW → PENDING_REVIEW
+async function unclaim(req, res, next) {
+  try {
+    const userId = req.user.sub;
+    const role   = req.user.role;
+    const { id } = req.params;
+    if (role !== 'REVIEWER') return res.status(403).json({ error: 'ERR_NOT_REVIEWER', message: 'Role không phải REVIEWER' });
+
+    const { rows } = await pool.query(`SELECT * FROM bookings WHERE id=$1`, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'ERR_BOOKING_NOT_FOUND', message: 'Booking không tồn tại' });
+    if (rows[0].reviewer_id !== userId) return res.status(403).json({ error: 'ERR_NOT_CLAIMING_REVIEWER', message: 'Không phải người claim' });
+    if (rows[0].status !== 'IN_REVIEW') return res.status(409).json({ error: 'ERR_WRONG_STATUS_FOR_CLAIM', message: 'Booking is not IN_REVIEW' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`UPDATE bookings SET status='PENDING_REVIEW', reviewer_id=NULL WHERE id=$1`, [id]);
+      await addLog(client, { bookingId: id, actorId: userId, fromStatus: 'IN_REVIEW', toStatus: 'PENDING_REVIEW', comment: req.body.reason || 'Returned to queue by reviewer' });
+      await client.query('COMMIT');
+      res.json({ message: 'Unclaimed', status: 'PENDING_REVIEW' });
     } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
   } catch (err) { next(err); }
 }
@@ -216,20 +261,24 @@ async function forward(req, res, next) {
     const userId = req.user.sub;
     const role   = req.user.role;
     const { id } = req.params;
-    if (role !== 'REVIEWER') return res.status(403).json({ error: 'Only reviewers can forward' });
+    if (role !== 'REVIEWER') return res.status(403).json({ error: 'ERR_NOT_REVIEWER', message: 'Role không phải REVIEWER' });
 
-    const { rows } = await pool.query(`SELECT * FROM bookings WHERE id=$1 AND reviewer_id=$2`, [id, userId]);
-    if (!rows.length) return res.status(404).json({ error: 'Booking not found or not claimed by you' });
-    if (rows[0].status !== 'IN_REVIEW') return res.status(400).json({ error: 'Booking must be IN_REVIEW' });
+    const note = req.body.note || '';
+    if (note.length < 10) return res.status(422).json({ error: 'ERR_COMMENT_TOO_SHORT', message: 'Nhận xét phải có ít nhất 10 ký tự' });
+
+    const { rows } = await pool.query(`SELECT * FROM bookings WHERE id=$1`, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'ERR_BOOKING_NOT_FOUND', message: 'Booking không tồn tại' });
+    if (rows[0].reviewer_id !== userId) return res.status(403).json({ error: 'ERR_NOT_CLAIMING_REVIEWER', message: 'Không phải người claim' });
+    if (rows[0].status !== 'IN_REVIEW') return res.status(409).json({ error: 'ERR_WRONG_STATUS_FOR_FORWARD', message: 'Booking phải ở IN_REVIEW mới Forward được' });
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       await client.query(
-        `UPDATE bookings SET status='PENDING_APPROVAL', reviewer_note=$1 WHERE id=$2`,
-        [req.body.note || null, id]
+        `UPDATE bookings SET status='PENDING_APPROVAL', reviewer_note=$1, reviewer_note_internal=$2 WHERE id=$3`,
+        [req.body.is_internal ? null : note, req.body.is_internal ? note : null, id]
       );
-      await addLog(client, { bookingId: id, actorId: userId, fromStatus: 'IN_REVIEW', toStatus: 'PENDING_APPROVAL', comment: req.body.note || 'Forwarded to approver' });
+      await addLog(client, { bookingId: id, actorId: userId, fromStatus: 'IN_REVIEW', toStatus: 'PENDING_APPROVAL', comment: note });
       await client.query('COMMIT');
 
       const { rows: approvers } = await pool.query(`SELECT id FROM users WHERE role='APPROVER' AND status='ACTIVE'`);
@@ -247,17 +296,17 @@ async function approve(req, res, next) {
     const userId = req.user.sub;
     const role   = req.user.role;
     const { id } = req.params;
-    if (role !== 'APPROVER' && role !== 'ADMIN') return res.status(403).json({ error: 'Only approvers can approve' });
+    if (role !== 'APPROVER' && role !== 'ADMIN') return res.status(403).json({ error: 'ERR_NOT_APPROVER', message: 'Role không phải APPROVER' });
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
       const { rows: bookings } = await client.query("SELECT * FROM bookings WHERE id = $1 FOR UPDATE", [id]);
-      if (!bookings.length) return res.status(404).json({ error: 'Booking not found' });
+      if (!bookings.length) return res.status(404).json({ error: 'ERR_BOOKING_NOT_FOUND', message: 'Booking không tồn tại' });
       const b = bookings[0];
 
-      if (b.status !== 'PENDING_APPROVAL') return res.status(400).json({ error: 'Booking must be PENDING_APPROVAL' });
+      if (b.status !== 'PENDING_APPROVAL') return res.status(409).json({ error: 'ERR_WRONG_STATUS_FOR_APPROVE', message: 'Booking phải ở PENDING_APPROVAL' });
 
       // SRS LOGIC-APP-001: Race condition conflict check
       // Check if another booking was approved for this room/date/slot while this one was pending
@@ -296,19 +345,24 @@ async function reject(req, res, next) {
     const userId = req.user.sub;
     const role   = req.user.role;
     const { id } = req.params;
-    if (!['REVIEWER', 'APPROVER', 'ADMIN'].includes(role)) return res.status(403).json({ error: 'Not authorized' });
-    if (!req.body.reason) return res.status(400).json({ error: 'reason is required for rejection' });
+    if (!['REVIEWER', 'APPROVER', 'ADMIN'].includes(role)) return res.status(403).json({ error: 'ERR_NOT_AUTHORIZED', message: 'Not authorized' });
+    if (!req.body.reason) return res.status(422).json({ error: 'ERR_REASON_REQUIRED', message: 'Lý do từ chối bắt buộc nhập' });
+    
+    // Check reason detail length (reason string format is "Reason: Detail")
+    const reasonParts = req.body.reason.split(':');
+    const detail = reasonParts.length > 1 ? reasonParts[1].trim() : req.body.reason.trim();
+    if (detail.length < 20) return res.status(422).json({ error: 'ERR_REASON_DETAIL_TOO_SHORT', message: 'Chi tiết lý do phải có ít nhất 20 ký tự' });
 
     const { rows } = await pool.query(`SELECT * FROM bookings WHERE id=$1`, [id]);
-    if (!rows.length) return res.status(404).json({ error: 'Booking not found' });
+    if (!rows.length) return res.status(404).json({ error: 'ERR_BOOKING_NOT_FOUND', message: 'Booking không tồn tại' });
 
     const allowedFrom = ['PENDING_REVIEW', 'IN_REVIEW', 'PENDING_APPROVAL'];
-    if (!allowedFrom.includes(rows[0].status)) return res.status(400).json({ error: `Cannot reject from status ${rows[0].status}` });
+    if (!allowedFrom.includes(rows[0].status)) return res.status(409).json({ error: 'ERR_WRONG_STATUS_FOR_REJECT', message: `Cannot reject from status ${rows[0].status}` });
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(`UPDATE bookings SET status='REJECTED', rejected_at=NOW() WHERE id=$1`, [id]);
+      await client.query(`UPDATE bookings SET status='REJECTED', rejection_reason=$2, rejected_at=NOW() WHERE id=$1`, [id, req.body.reason]);
       await addLog(client, { bookingId: id, actorId: userId, fromStatus: rows[0].status, toStatus: 'REJECTED', comment: req.body.reason });
       await client.query('COMMIT');
       notify({ user_id: rows[0].creator_id, booking_id: id, type: 'BOOKING_REJECTED', title: 'Booking Rejected', message: `Your booking was rejected. Reason: ${req.body.reason}` });
@@ -339,6 +393,36 @@ async function cancel(req, res, next) {
       await client.query('COMMIT');
       res.json({ message: 'Cancelled', status: 'CANCELLED' });
     } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
+  } catch (err) { next(err); }
+}
+
+// GET /bookings/reviewer-history — Reviewer: history of processed bookings
+async function reviewerHistory(req, res, next) {
+  try {
+    const userId = req.user.sub;
+    const role   = req.user.role;
+    if (!['REVIEWER', 'ADMIN'].includes(role)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { action, result, date_from, date_to } = req.query;
+    let where = [`b.reviewer_id = $1`, `b.status IN ('PENDING_APPROVAL','REJECTED','APPROVED')` ];
+    let params = [userId];
+    let i = 2;
+
+    if (action === 'FORWARDED') { where.push(`b.status IN ('PENDING_APPROVAL','APPROVED')`); }
+    if (action === 'REJECTED')  { where.push(`b.status = 'REJECTED'`); }
+    if (result)    { where.push(`b.status = $${i++}`); params.push(result); }
+    if (date_from) { where.push(`b.updated_at >= $${i++}`); params.push(date_from); }
+    if (date_to)   { where.push(`b.updated_at <= $${i++}`); params.push(date_to); }
+
+    const { rows } = await pool.query(
+      `SELECT bs.*, b.updated_at AS processed_at, b.reviewer_note
+       FROM booking_summary bs
+       JOIN bookings b ON b.id = bs.id
+       WHERE ${where.join(' AND ')}
+       ORDER BY b.updated_at DESC LIMIT 200`,
+      params
+    );
+    res.json({ data: rows });
   } catch (err) { next(err); }
 }
 
@@ -400,4 +484,4 @@ async function getStats(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { list, getById, create, submit, claim, forward, approve, reject, cancel, getStats };
+module.exports = { list, getById, create, submit, claim, unclaim, forward, approve, reject, cancel, getStats, reviewerHistory };

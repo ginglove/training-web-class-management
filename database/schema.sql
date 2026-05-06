@@ -18,6 +18,8 @@ CREATE TYPE user_status AS ENUM ('ACTIVE', 'INACTIVE', 'LOCKED');
 
 CREATE TYPE class_status AS ENUM ('AVAILABLE', 'MAINTENANCE', 'CLOSED');
 
+CREATE TYPE block_type AS ENUM ('MAINTENANCE', 'HOLIDAY', 'EVENT', 'OTHER');
+
 CREATE TYPE booking_status AS ENUM (
   'DRAFT',
   'PENDING_REVIEW',
@@ -122,9 +124,11 @@ CREATE TABLE bookings (
   reviewer_id     UUID REFERENCES users(id) ON DELETE SET NULL,
   approver_id     UUID REFERENCES users(id) ON DELETE SET NULL,
   reviewer_note   TEXT,
+  reviewer_note_internal TEXT,              -- is_internal note (hidden from Creator)
   approver_note   TEXT,
   rejection_reason TEXT,
   submitted_at    TIMESTAMPTZ,
+  claimed_at      TIMESTAMPTZ,             -- when reviewer claimed this booking
   approved_at     TIMESTAMPTZ,
   rejected_at     TIMESTAMPTZ,
   cancelled_at    TIMESTAMPTZ,
@@ -158,6 +162,22 @@ CREATE TABLE booking_logs (
 
 CREATE INDEX idx_booking_logs_booking ON booking_logs(booking_id);
 CREATE INDEX idx_booking_logs_actor   ON booking_logs(actor_id);
+
+-- -------------------------------------------------------------
+-- BOOKING COMMENTS (threaded per-booking — SRS 19.6)
+-- -------------------------------------------------------------
+CREATE TABLE booking_comments (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id  UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  author_id   UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  content     TEXT NOT NULL CHECK (char_length(content) >= 1),
+  is_internal BOOLEAN NOT NULL DEFAULT FALSE,  -- hidden from CREATOR if TRUE
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_booking_comments_booking ON booking_comments(booking_id);
+CREATE INDEX idx_booking_comments_author  ON booking_comments(author_id);
 
 -- -------------------------------------------------------------
 -- NOTIFICATIONS
@@ -206,6 +226,30 @@ CREATE TABLE email_tokens (
 
 CREATE INDEX idx_email_tokens_token ON email_tokens(token);
 CREATE INDEX idx_email_tokens_user  ON email_tokens(user_id);
+
+-- -------------------------------------------------------------
+-- MANUAL CALENDAR BLOCKS (Admin)
+-- -------------------------------------------------------------
+CREATE TABLE manual_calendar_blocks (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  class_id        UUID REFERENCES classes(id) ON DELETE CASCADE,
+  created_by      UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  block_type      block_type NOT NULL,
+  title           VARCHAR(200) NOT NULL,
+  description     TEXT,
+  start_datetime  TIMESTAMPTZ NOT NULL,
+  end_datetime    TIMESTAMPTZ NOT NULL,
+  is_all_day      BOOLEAN NOT NULL DEFAULT FALSE,
+  recurrence_rule VARCHAR(200),
+  color           VARCHAR(7),
+  affected_bookings UUID[],
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at      TIMESTAMPTZ,
+  CHECK (end_datetime > start_datetime)
+);
+
+CREATE INDEX idx_manual_blocks_class ON manual_calendar_blocks(class_id);
+CREATE INDEX idx_manual_blocks_time  ON manual_calendar_blocks(start_datetime, end_datetime);
 
 -- -------------------------------------------------------------
 -- SYSTEM CONFIGURATION

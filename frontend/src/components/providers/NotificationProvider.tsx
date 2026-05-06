@@ -49,12 +49,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     es.onerror = (err) => {
-      console.error('⚠️ SSE Error (Connection might have dropped):', err);
+      // readyState 2 means CLOSED. We only log if it's not a normal clean-up.
+      if (es.readyState !== EventSource.CLOSED) {
+        console.warn('⚠️ SSE Connection lost. Reconnecting in 5s...', err);
+      }
       es.close();
       
       // Attempt reconnection after 5 seconds
       reconnectTimeoutRef.current = setTimeout(() => {
-        console.log('🔄 Attempting to reconnect SSE...');
         connectSSE();
       }, 5000);
     };

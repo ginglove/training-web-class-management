@@ -1,13 +1,13 @@
-import { format } from 'date-fns';
+import { format, Locale } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 /**
  * Safely format a date value. Returns a fallback string if the date is invalid.
  */
 export function safeFormat(
-  date: any, 
+  date: Date | string | number | null | undefined, 
   formatStr: string, 
-  options: { locale?: any; fallback?: string } = { locale: vi, fallback: 'N/A' }
+  options: { locale?: Locale; fallback?: string } = { locale: vi, fallback: 'N/A' }
 ): string {
   if (!date) return options.fallback || 'N/A';
   
@@ -17,7 +17,7 @@ export function safeFormat(
       return options.fallback || 'N/A';
     }
     return format(dateObj, formatStr, { locale: options.locale || vi });
-  } catch (err) {
+  } catch {
     return options.fallback || 'N/A';
   }
 }

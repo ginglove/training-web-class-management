@@ -6,10 +6,10 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { formatDistanceToNow, isAfter, subDays, subMonths, startOfDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 
-  Bell, CheckCheck, Trash2, Info, AlertCircle, 
-  CheckCircle2, XCircle, Clock, Sparkles, Filter, 
-  ChevronRight, Home, Shield, Mail, Calendar, Search,
-  Check, X, RefreshCw
+  CheckCheck, Trash2, 
+  CheckCircle2, Sparkles, 
+  ChevronRight, Home, Search,
+  Check, RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,6 +27,10 @@ const getNotifIcon = (type: string) => {
   }
 };
 
+type StatusFilter = 'all' | 'unread' | 'read';
+type TypeFilter = 'all' | 'booking' | 'system' | 'security';
+type TimeFilter = 'all' | 'today' | '7days' | '30days';
+
 export default function NotificationsPage() {
   const { 
     notifications, 
@@ -39,9 +43,9 @@ export default function NotificationsPage() {
   } = useNotificationStore();
 
   // Filters State
-  const [statusFilter, setStatusFilter] = React.useState<'all' | 'unread' | 'read'>('all');
-  const [typeFilter, setTypeFilter] = React.useState<'all' | 'booking' | 'system' | 'security'>('all');
-  const [timeFilter, setTimeFilter] = React.useState<'all' | 'today' | '7days' | '30days'>('all');
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
+  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all');
+  const [timeFilter, setTimeFilter] = React.useState<TimeFilter>('all');
   const [pageSize, setPageSize] = React.useState(10);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
@@ -74,7 +78,7 @@ export default function NotificationsPage() {
     try {
       await markAllAsRead();
       toast.success(`Đã đánh dấu ${unreadCount} thông báo đã đọc`);
-    } catch (err) {
+    } catch {
       toast.error('Cập nhật thất bại');
     }
   };
@@ -89,7 +93,7 @@ export default function NotificationsPage() {
     try {
       await clearReadNotifications();
       toast.success(`Đã xóa ${readCount} thông báo`);
-    } catch (err) {
+    } catch {
       toast.error('Xóa thất bại');
     }
   };
@@ -99,7 +103,7 @@ export default function NotificationsPage() {
       await deleteNotification(id);
       toast.success('Đã xóa thông báo');
       setDeletingId(null);
-    } catch (err) {
+    } catch {
       toast.error('Xóa thất bại');
     }
   };
@@ -108,7 +112,7 @@ export default function NotificationsPage() {
     e.stopPropagation();
     try {
       await markAsRead(id);
-    } catch (err) {
+    } catch {
       toast.error('Cập nhật thất bại');
     }
   };
@@ -177,7 +181,7 @@ export default function NotificationsPage() {
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Trạng thái</label>
             <select 
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-5 py-3 text-white text-sm font-bold focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
             >
               <option value="all">Tất cả thông báo</option>
@@ -189,7 +193,7 @@ export default function NotificationsPage() {
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Loại</label>
             <select 
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as any)}
+              onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
               className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-5 py-3 text-white text-sm font-bold focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
             >
               <option value="all">Tất cả loại</option>
@@ -202,7 +206,7 @@ export default function NotificationsPage() {
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Thời gian</label>
             <select 
               value={timeFilter}
-              onChange={(e) => setTimeFilter(e.target.value as any)}
+              onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
               className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-5 py-3 text-white text-sm font-bold focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
             >
               <option value="all">Mọi thời gian</option>
@@ -227,7 +231,7 @@ export default function NotificationsPage() {
               </Card>
             </motion.div>
           ) : (
-            displayed.map((n, i) => (
+            displayed.map((n) => (
               <motion.div
                 key={n.id}
                 initial={{ opacity: 0, x: -20 }}

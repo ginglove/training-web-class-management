@@ -18,6 +18,10 @@
       "destination": "/backend/booking-service/src/index.js"
     },
     {
+      "source": "/api/calendar/(.*)",
+      "destination": "/backend/booking-service/src/index.js"
+    },
+    {
       "source": "/api/notifications/(.*)",
       "destination": "/backend/notification-service/src/index.js"
     },

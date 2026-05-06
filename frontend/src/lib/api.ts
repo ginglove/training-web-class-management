@@ -8,7 +8,7 @@ interface FetchApiOptions extends RequestInit {
 }
 
 export async function fetchApi(endpoint: string, options: FetchApiOptions = {}) {
-  const { token, logout } = useAuthStore.getState();
+  const { token } = useAuthStore.getState();
 
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
@@ -42,7 +42,7 @@ export async function fetchApi(endpoint: string, options: FetchApiOptions = {}) 
           retryHeaders.set('Content-Type', 'application/json');
           retryHeaders.set('Authorization', `Bearer ${refreshData.access_token}`);
           
-          return fetchApi(endpoint, { ...options, headers: retryHeaders, _isRetry: true } as any);
+          return fetchApi(endpoint, { ...options, headers: retryHeaders, _isRetry: true });
         }
       } catch (e) {
         console.error('Failed to refresh token', e);
@@ -60,7 +60,7 @@ export async function fetchApi(endpoint: string, options: FetchApiOptions = {}) 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error: any = new Error(data.message || data.error || 'API Request Failed');
+    const error = new Error(data.message || data.error || 'API Request Failed') as Error & Record<string, unknown>;
     // Attach original data payload to the error object so we can read err.error codes
     Object.assign(error, data);
     throw error;

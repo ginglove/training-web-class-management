@@ -14,24 +14,43 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Clock, CheckCircle2, XCircle, 
-  AlertCircle, MapPin, Users, FileText, Calendar as CalendarIcon,
-  Copy, ChevronRight, History, ShieldCheck, Zap,
-  Activity, Sparkles, User, Info, ArrowUpRight,
-  Trash2, ExternalLink, Calendar, CheckCircle
+  AlertCircle, MapPin, Users, FileText,
+  Copy, ShieldCheck, Zap,
+  Activity, Sparkles, User, Info,
+  Trash2, Calendar, CheckCircle
 } from 'lucide-react';
+
+interface Booking {
+  id: string;
+  course_name?: string;
+  purpose?: string;
+  reason?: string;
+  class_name: string;
+  class_location: string;
+  date: string;
+  slot_name: string;
+  start_time: string;
+  end_time: string;
+  attendee_count: number;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+  reviewer_note?: string;
+  approver_note?: string;
+}
 
 export default function MyBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = React.use(params);
-  const [booking, setBooking] = React.useState<any>(null);
+  const [booking, setBooking] = React.useState<Booking | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   const loadBooking = React.useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetchApi(`/api/bookings/${id}`);
-      setBooking(res.data);
-    } catch (err: any) {
+      setBooking(res.data || res);
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Không thể tải thông tin chi tiết'));
       router.push('/my-bookings');
     } finally {
@@ -44,13 +63,14 @@ export default function MyBookingDetailPage({ params }: { params: Promise<{ id: 
   }, [loadBooking]);
 
   const handleAction = async (action: string) => {
+    if (!booking) return;
     if (action === 'CANCEL') {
       if (!confirm('Bạn có chắc chắn muốn hủy yêu cầu này?')) return;
       try {
         await fetchApi(`/api/bookings/${booking.id}/cancel`, { method: 'PATCH' });
         toast.success('Đã hủy booking thành công');
         loadBooking();
-      } catch (err: any) {
+      } catch (err: unknown) {
         toast.error(getErrorMessage(err, 'Hủy thất bại'));
       }
     } else if (action === 'CLONE') {
@@ -95,8 +115,8 @@ export default function MyBookingDetailPage({ params }: { params: Promise<{ id: 
     }
   };
 
-  const status = getStatusConfig(booking.status);
-  const StatusIcon = status.icon;
+  const statusConfig = getStatusConfig(booking.status);
+  const StatusIcon = statusConfig.icon;
 
   return (
     <div className="max-w-6xl mx-auto space-y-12 pb-24 px-4 sm:px-6">
@@ -107,7 +127,7 @@ export default function MyBookingDetailPage({ params }: { params: Promise<{ id: 
             onClick={() => router.push('/my-bookings')}
             className="group flex items-center gap-3 text-slate-400 hover:text-indigo-600 transition-colors"
           >
-            <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center group-hover:bg-indigo-50 group-hover:border-indigo-100 shadow-sm transition-all">
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 group-hover:bg-indigo-50 group-hover:border-indigo-100 shadow-sm transition-all">
               <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             </div>
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Quay lại danh sách</span>
@@ -119,9 +139,9 @@ export default function MyBookingDetailPage({ params }: { params: Promise<{ id: 
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-3">
-                <Badge className={cn("px-4 py-1.5 rounded-[0.8rem] border shadow-sm text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-2", status.color)}>
+                <Badge className={cn("px-4 py-1.5 rounded-[0.8rem] border shadow-sm text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-2", statusConfig.color)}>
                   <StatusIcon className="w-3.5 h-3.5" />
-                  {status.label}
+                  {statusConfig.label}
                 </Badge>
                 <div className="flex items-center gap-2 text-slate-400">
                    <Clock className="w-3.5 h-3.5" />
@@ -182,7 +202,7 @@ export default function MyBookingDetailPage({ params }: { params: Promise<{ id: 
                 </div>
                 <div className="bg-white/80 backdrop-blur-sm rounded-[2rem] p-8 border-2 border-rose-100/50 relative z-10">
                    <p className="text-rose-900 font-bold leading-relaxed text-xl italic">
-                     "{booking.approver_note || booking.reviewer_note || 'Hồ sơ bị từ chối do không phù hợp với quy định sử dụng phòng hoặc trùng lịch. Vui lòng kiểm tra lại thông tin.'}"
+                     &quot;{booking.approver_note || booking.reviewer_note || 'Hồ sơ bị từ chối do không phù hợp với quy định sử dụng phòng hoặc trùng lịch. Vui lòng kiểm tra lại thông tin.'}&quot;
                    </p>
                 </div>
                 <div className="flex items-center gap-3 text-rose-400 font-black text-[10px] uppercase tracking-widest px-4">
@@ -329,7 +349,7 @@ export default function MyBookingDetailPage({ params }: { params: Promise<{ id: 
                     <div className="space-y-1 py-1">
                       <p className="font-black text-slate-800 leading-none">{step.label}</p>
                       <p className="text-[10px] font-bold text-slate-400 italic">
-                        {step.active ? format(new Date(step.time), 'HH:mm, dd/MM/yyyy') : 'Chờ xử lý...'}
+                        {step.active && step.time ? format(new Date(step.time), 'HH:mm, dd/MM/yyyy') : 'Chờ xử lý...'}
                       </p>
                     </div>
                   </div>
@@ -359,7 +379,10 @@ export default function MyBookingDetailPage({ params }: { params: Promise<{ id: 
                    <p className="text-xs font-black text-slate-800">45-60 Chỗ</p>
                 </div>
              </div>
-             <button className="w-full py-3 text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100 rounded-xl hover:bg-indigo-50 transition-colors">
+             <button 
+                onClick={() => router.push('/schedule')}
+                className="w-full py-3 text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100 rounded-xl hover:bg-indigo-50 transition-colors"
+             >
                 Xem lịch phòng chi tiết
              </button>
           </Card>

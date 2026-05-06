@@ -9,20 +9,13 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { 
-  ShieldCheck, 
   Lock, 
   Mail, 
-  ArrowRight, 
   Key,
-  Sparkles,
-  Command,
   ChevronRight,
-  Fingerprint,
-  Zap,
   CheckCircle2,
   AlertTriangle
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export default function ForgotPassword() {
   const router = useRouter();
@@ -54,7 +47,7 @@ export default function ForgotPassword() {
       });
 
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, 'Đổi mật khẩu thất bại. Vui lòng thử lại.'));
     } finally {
       setLoading(false);

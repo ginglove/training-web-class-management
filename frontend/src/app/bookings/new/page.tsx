@@ -10,23 +10,38 @@ import { useAuthStore } from '@/stores/authStore';
 import { fetchApi } from '@/lib/api';
 import { 
   ArrowLeft, ArrowRight, Check, Calendar, Users, 
-  Info, Laptop, CheckCircle2, MapPin, Clock, 
-  ChevronRight, Sparkles, Building, Hash, Zap, XCircle, ShieldCheck
+  Laptop, CheckCircle2, Building, Clock, 
+  Sparkles, XCircle, ShieldCheck, Zap, Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { toast } from 'react-hot-toast';
 import { Badge } from '@/components/ui/Badge';
 
+interface Room {
+  id: string;
+  name: string;
+  location: string;
+  capacity: number;
+}
+
+interface Slot {
+  slot_id: number;
+  slot_name: string;
+  start_time: string;
+  end_time: string;
+  booking_id?: string;
+}
+
 export default function NewBookingPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   
   const [step, setStep] = React.useState(1);
-  const [rooms, setRooms] = React.useState<any[]>([]);
+  const [rooms, setRooms] = React.useState<Room[]>([]);
   const [selectedRoom, setSelectedRoom] = React.useState<string>('');
   const [date, setDate] = React.useState<string>(new Date().toISOString().split('T')[0]);
-  const [slots, setSlots] = React.useState<any[]>([]);
+  const [slots, setSlots] = React.useState<Slot[]>([]);
   const [selectedSlot, setSelectedSlot] = React.useState<string>('');
   
   const [courseName, setCourseName] = React.useState('');
@@ -37,36 +52,50 @@ export default function NewBookingPage() {
   const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
   const [generalError, setGeneralError] = React.useState('');
 
+  const loadInitialData = React.useCallback(async () => {
+    try {
+      const roomsData = await fetchApi('/api/rooms');
+      setRooms(roomsData);
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const cloneId = urlParams.get('cloneFrom');
+      if (cloneId) {
+        const data = await fetchApi(`/api/bookings/${cloneId}`);
+        setSelectedRoom(data.class_id);
+        setCourseName(data.course_name || '');
+        setPurpose(data.purpose || '');
+        setAttendeeCount(data.attendee_count?.toString() || '');
+        toast.success('Đã sao chép thông tin từ booking cũ');
+      }
+    } catch (err: unknown) {
+      console.error(err);
+    }
+  }, []);
+
   React.useEffect(() => {
     if (user && user.role !== 'CREATOR' && user.role !== 'ADMIN') {
       router.push('/home');
     }
-    fetchApi('/api/rooms').then(setRooms).catch(console.error);
+    loadInitialData();
+  }, [user, router, loadInitialData]);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const cloneId = urlParams.get('cloneFrom');
-    if (cloneId) {
-      fetchApi(`/api/bookings/${cloneId}`)
-        .then(data => {
-          setSelectedRoom(data.class_id);
-          setCourseName(data.course_name || '');
-          setPurpose(data.purpose || '');
-          setAttendeeCount(data.attendee_count?.toString() || '');
-          toast.success('Đã sao chép thông tin từ booking cũ');
-        })
-        .catch(console.error);
-    }
-  }, [user, router]);
-
-  React.useEffect(() => {
+  const loadSlots = React.useCallback(async () => {
     if (selectedRoom && date) {
-      fetchApi(`/api/rooms/${selectedRoom}/availability?date=${date}`)
-        .then(res => setSlots(res.slots))
-        .catch(console.error);
+      try {
+        const res = await fetchApi(`/api/rooms/${selectedRoom}/availability?date=${date}`);
+        setSlots(res.slots);
+      } catch (err: unknown) {
+        console.error(err);
+        setSlots([]);
+      }
     } else {
       setSlots([]);
     }
   }, [selectedRoom, date]);
+
+  React.useEffect(() => {
+    loadSlots();
+  }, [loadSlots]);
 
   const validateStep1 = () => {
     const errors: Record<string, string> = {};
@@ -118,7 +147,7 @@ export default function NewBookingPage() {
       });
       toast.success('Đã tạo bản nháp thành công!');
       router.push(`/bookings/${res.id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setGeneralError(getErrorMessage(err, 'Lỗi khi tạo booking'));
       toast.error('Có lỗi xảy ra khi tạo yêu cầu');
     } finally {
@@ -168,10 +197,9 @@ export default function NewBookingPage() {
             />
           </div>
 
-          {steps.map((s, i) => {
+          {steps.map((s) => {
             const Icon = s.icon;
             const isActive = step >= s.id;
-            const isCurrent = step === s.id;
             
             return (
               <div key={s.id} className="relative z-10 flex flex-col items-center gap-4">
@@ -491,7 +519,7 @@ export default function NewBookingPage() {
                     <div className="space-y-3 pt-6 border-t border-slate-100">
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nội dung / Ghi chú</div>
                       <div className="bg-slate-50/50 p-6 rounded-3xl border-2 border-slate-100 text-slate-600 font-medium text-sm leading-relaxed italic">
-                        "{purpose}"
+                        &quot;{purpose}&quot;
                       </div>
                     </div>
 

@@ -1,21 +1,29 @@
 'use client';
 
 import * as React from 'react';
-import { Card } from '@/components/ui/Card';
 import { fetchApi } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
 import { safeFormat } from '@/lib/date-utils';
 import { 
-  History, ArrowRight, User, Calendar, MapPin, 
-  ClipboardEdit, Forward, XCircle, Search, Clock, 
-  Zap, Sparkles, Layers, ArrowUpRight
+  History, User, Calendar, MapPin, 
+  ClipboardEdit, Forward, 
+  Sparkles, Layers, ArrowUpRight
 } from 'lucide-react';
 import Link from 'next/link';
-import { toast } from 'react-hot-toast';
-import { cn } from '@/lib/utils';
+
+interface Booking {
+  id: string;
+  course_name?: string;
+  purpose?: string;
+  class_name?: string;
+  date: string;
+  slot_name: string;
+  creator_name: string;
+  updated_at: string;
+}
 
 export default function ReviewerInReviewPage() {
-  const [bookings, setBookings] = React.useState<any[]>([]);
+  const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const loadBookings = React.useCallback(async () => {

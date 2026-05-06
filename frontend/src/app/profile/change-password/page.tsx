@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
 import { 
   Lock, 
   ShieldCheck, 
@@ -13,7 +12,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Zap,
-  ArrowUpRight,
   ShieldAlert,
   ArrowLeft
 } from 'lucide-react';
@@ -68,7 +66,7 @@ export default function ChangePasswordPage() {
       });
       toast.success('Đổi mật khẩu thành công!');
       setFormData({ current_password: '', new_password: '', confirm_password: '' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Đổi mật khẩu thất bại'));
     } finally {
       setLoading(false);

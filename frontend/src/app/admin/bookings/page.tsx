@@ -11,17 +11,10 @@ import {
   XCircle, 
   FileDown, 
   Calendar, 
-  User, 
-  Home,
-  Sparkles,
-  Activity,
-  ArrowUpRight,
   ChevronRight,
   ShieldCheck,
   Building,
   Clock,
-  MoreVertical,
-  Gavel,
   Zap,
   ShieldAlert
 } from 'lucide-react';
@@ -33,28 +26,40 @@ import { getErrorMessage } from '@/lib/errorTranslations';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface Booking {
+  id: string;
+  course_name: string;
+  purpose: string;
+  class_name: string;
+  class_location: string;
+  start_datetime: string;
+  status: string;
+  creator_name: string;
+  created_at: string;
+}
+
 export default function AdminBookingsOversightPage() {
   const router = useRouter();
-  const [bookings, setBookings] = React.useState<any[]>([]);
+  const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('ALL');
 
-  const loadBookings = async () => {
+  const loadBookings = React.useCallback(async () => {
     try {
       const url = statusFilter === 'ALL' ? '/api/bookings' : `/api/bookings?status=${statusFilter}`;
       const res = await fetchApi(url);
       setBookings(res.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Lỗi khi tải danh sách booking'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   React.useEffect(() => {
     loadBookings();
-  }, [statusFilter]);
+  }, [loadBookings]);
 
   const handleCancel = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn hủy đặt phòng này với tư cách Admin?')) return;
@@ -62,7 +67,7 @@ export default function AdminBookingsOversightPage() {
       await fetchApi(`/api/admin/bookings/${id}/cancel`, { method: 'POST' });
       toast.success('Đã hủy đặt phòng thành công');
       loadBookings();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Hủy thất bại'));
     }
   };

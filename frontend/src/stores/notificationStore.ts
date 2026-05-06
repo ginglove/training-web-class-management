@@ -49,7 +49,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         unreadCount: response.unread || 0,
         loading: false 
       });
-    } catch (err) {
+    } catch {
       set({ error: 'Không thể tải thông báo', loading: false });
     }
   },

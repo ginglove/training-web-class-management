@@ -17,14 +17,9 @@ import {
   UserPlus,
   User,
   Building,
-  Sparkles,
-  Command,
-  ChevronRight,
-  Fingerprint,
-  Zap,
-  CheckCircle2
+  CheckCircle2,
+  Fingerprint
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export default function Register() {
   const router = useRouter();
@@ -76,7 +71,7 @@ export default function Register() {
         login(data.user, data.access_token);
         router.push('/home');
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setGeneralError(getErrorMessage(err, 'Đăng ký thất bại. Vui lòng thử lại.'));
     } finally {
       setLoading(false);

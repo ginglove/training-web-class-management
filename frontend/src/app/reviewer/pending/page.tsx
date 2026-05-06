@@ -1,210 +1,374 @@
 'use client';
 
 import * as React from 'react';
-import { Card } from '@/components/ui/Card';
 import { fetchApi } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
 import { safeFormat } from '@/lib/date-utils';
-import { 
-  ClipboardCheck, ArrowRight, User, Calendar, 
-  MapPin, Users, Zap, Search, Clock, Sparkles,
-  Inbox, Filter, RefreshCcw
+import {
+  Inbox, Clock, Users, MapPin, Zap, Search, RefreshCcw,
+  ChevronRight, X, ClipboardCheck, AlertTriangle, ArrowRight,
+  ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import { getErrorMessage } from '@/lib/errorTranslations';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
+import { formatDistanceToNow, parseISO, differenceInHours } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function ReviewerPendingPage() {
-  const [bookings, setBookings] = React.useState<any[]>([]);
+interface Booking {
+  id: string;
+  course_name?: string;
+  purpose?: string;
+  class_name?: string;
+  date: string;
+  slot_name: string;
+  creator_name: string;
+  submitted_at: string | null;
+  attendee_count?: number;
+  description?: string;
+  claimed_at?: string;
+}
+
+// Waiting time helper
+function WaitBadge({ submittedAt }: { submittedAt: string | null }) {
+  if (!submittedAt) return <span className="text-slate-300 text-xs font-bold">—</span>;
+  const hours = differenceInHours(new Date(), parseISO(submittedAt));
+  const label = formatDistanceToNow(parseISO(submittedAt), { addSuffix: false, locale: vi });
+  const color = hours > 48 ? 'text-rose-600 bg-rose-50 border-rose-200'
+    : hours > 24 ? 'text-orange-600 bg-orange-50 border-orange-200'
+    : 'text-emerald-600 bg-emerald-50 border-emerald-200';
+  const title = `Gửi lúc ${safeFormat(submittedAt, 'HH:mm dd/MM/yyyy')}`;
+  return (
+    <span title={title} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-bold', color)}>
+      <Clock className="w-3 h-3" />{label}
+      {hours > 48 && <AlertTriangle className="w-3 h-3 ml-0.5" />}
+    </span>
+  );
+}
+
+export default function ReviewerQueuePage() {
+  const router = useRouter();
+  const [tab, setTab] = React.useState<'pending' | 'mine'>('pending');
+  const [pending, setPending] = React.useState<Booking[]>([]);
+  const [inReview, setInReview] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  const loadBookings = React.useCallback(async () => {
+  // Filters
+  const [search, setSearch] = React.useState('');
+  const [sort, setSort] = React.useState('oldest');
+
+  // Quick preview panel
+  const [preview, setPreview] = React.useState<Booking | null>(null);
+
+  // Unclaim confirm
+  const [unclaimId, setUnclaimId] = React.useState<string | null>(null);
+  const [unclaimProcessing, setUnclaimProcessing] = React.useState(false);
+
+  const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetchApi('/api/bookings?status=PENDING_REVIEW');
-      setBookings(res.data);
+      const [pRes, mRes] = await Promise.all([
+        fetchApi(`/api/reviewer/queue?sort=${sort}&booker=${encodeURIComponent(search)}`),
+        fetchApi('/api/reviewer/in-progress')
+      ]);
+      setPending(pRes.data || []);
+      setInReview(mRes.data || []);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sort, search]);
 
   React.useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
+    const t = setTimeout(load, search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [load, search]);
 
   const handleClaim = async (id: string) => {
     try {
       await fetchApi(`/api/bookings/${id}/claim`, { method: 'PATCH' });
-      toast.success('Đã nhận review thành công!');
-      loadBookings();
-    } catch (err: any) {
-      toast.error(getErrorMessage(err, 'Lỗi khi nhận review'));
+      toast.success('Đã nhận xem xét — đang chuyển đến trang chi tiết...');
+      router.push(`/reviewer/evaluate/${id}`);
+    } catch (err) {
+      toast.error((err as Error).message || 'Lỗi khi nhận xem xét');
     }
   };
 
-  return (
-    <div className="max-w-6xl mx-auto space-y-12 pb-24">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-[1.2rem] bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-xl shadow-primary/5">
-              <Inbox className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-[0.2em]">
-                <Sparkles className="w-3 h-3" />
-                <span>Reviewer</span>
-              </div>
-              <h1 className="text-4xl font-black tracking-tight text-slate-800">Hàng đợi Chờ duyệt 📥</h1>
-            </div>
-          </div>
-          <p className="text-slate-500 font-medium max-w-xl leading-relaxed">
-            Xem xét và xử lý các yêu cầu đặt phòng mới từ Creator để đảm bảo các tiêu chuẩn đào tạo của hệ thống.
-          </p>
-        </div>
+  const handleUnclaim = async () => {
+    if (!unclaimId) return;
+    setUnclaimProcessing(true);
+    try {
+      await fetchApi(`/api/bookings/${unclaimId}/unclaim`, { method: 'PATCH', body: JSON.stringify({ reason: 'Trả lại hàng đợi' }) });
+      toast.success('Đã trả booking về hàng đợi chung');
+      setUnclaimId(null);
+      load();
+    } catch (err) {
+      toast.error((err as Error).message || 'Lỗi unclaim');
+    } finally {
+      setUnclaimProcessing(false);
+    }
+  };
 
-        <div className="flex bg-slate-100/80 backdrop-blur-md p-2 rounded-[1.5rem] border border-slate-200/50 shadow-inner">
-          <button className="px-8 py-3 bg-white shadow-xl shadow-slate-200/50 rounded-2xl text-[10px] font-black text-primary uppercase tracking-widest transition-all">
-            CHỜ XỬ LÝ
+  const list = tab === 'pending' ? pending : inReview;
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6 pb-24">
+
+      {/* Breadcrumb */}
+      <nav className="text-sm font-medium text-slate-400">
+        <Link href="/home" className="hover:text-indigo-600 transition-colors">Trang chủ</Link>
+        <span className="mx-2">›</span>
+        <span className="text-slate-700">Xem xét yêu cầu</span>
+      </nav>
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 shadow-sm">
+            <Inbox className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight">
+              Hàng đợi xem xét
+              <Badge className="ml-2 bg-indigo-100 text-indigo-700 border-none text-xs font-black">
+                {pending.length + inReview.length}
+              </Badge>
+            </h1>
+            <p className="text-xs text-slate-400 font-medium">Reviewer · SRS 19.3</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={load} className="h-9 px-3 flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-slate-700 text-xs font-bold transition-all">
+            <RefreshCcw className="w-3.5 h-3.5" /> Làm mới
           </button>
-          <Link href="/reviewer/in-review" className="px-8 py-3 rounded-2xl text-[10px] font-black text-slate-400 hover:text-slate-800 uppercase tracking-widest transition-all">
-            ĐANG REVIEW
+          <Link href="/reviewer/history" className="h-9 px-4 flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 text-xs font-bold transition-all">
+            Lịch sử đã xử lý <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-8 border-none bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/20 flex items-center gap-6">
-          <div className="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center text-primary border border-primary/10">
-            <Clock className="w-7 h-7" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng chờ</p>
-            <p className="text-3xl font-black text-slate-800 tracking-tight">{bookings.length}</p>
-          </div>
-        </Card>
-        <Card className="p-8 border-none bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/20 flex items-center gap-6">
-          <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 border border-amber-100">
-            <Zap className="w-7 h-7" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ưu tiên cao</p>
-            <p className="text-3xl font-black text-slate-800 tracking-tight">
-              {bookings.filter(b => b.attendee_count > 50).length}
-            </p>
-          </div>
-        </Card>
-        <Card className="p-8 border-none bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/20 flex items-center gap-6">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 border border-emerald-100">
-            <Users className="w-7 h-7" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng học viên</p>
-            <p className="text-3xl font-black text-slate-800 tracking-tight">
-              {bookings.reduce((acc, b) => acc + (b.attendee_count || 0), 0)}
-            </p>
-          </div>
-        </Card>
+      {/* Tabs */}
+      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setTab('pending')}
+          className={cn('px-5 py-2 rounded-lg text-xs font-black transition-all', tab === 'pending' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-700')}
+        >
+          Chờ xem xét <span className={cn('ml-1 px-1.5 py-0.5 rounded-md text-[10px]', tab === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500')}>{pending.length}</span>
+        </button>
+        <button
+          onClick={() => setTab('mine')}
+          className={cn('px-5 py-2 rounded-lg text-xs font-black transition-all', tab === 'mine' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-700')}
+        >
+          Đang xem xét — của tôi <span className={cn('ml-1 px-1.5 py-0.5 rounded-md text-[10px]', tab === 'mine' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500')}>{inReview.length}</span>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
-        {loading ? (
-          [1,2,3].map(i => (
-            <div key={i} className="h-56 rounded-[3rem] bg-white border border-slate-100 animate-pulse shadow-sm" />
-          ))
-        ) : bookings.length > 0 ? (
-          bookings.map((b) => (
-            <div key={b.id} className="group relative bg-white rounded-[3rem] p-2 border border-slate-100 shadow-2xl shadow-slate-200/30 hover:shadow-primary/10 hover:border-primary/20 transition-all duration-500 overflow-hidden">
-              <div className="flex flex-col lg:flex-row">
-                <div className="flex-1 p-10 lg:p-12 space-y-8">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <Badge className="bg-amber-500 text-white border-none px-4 py-1.5 text-[9px] font-black tracking-[0.2em] uppercase rounded-xl shadow-lg shadow-amber-500/20">MỚI</Badge>
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">MÃ YÊU CẦU: #{b.id.substring(0, 8)}</span>
-                      </div>
-                      <h3 className="text-3xl font-black text-slate-800 group-hover:text-primary transition-colors leading-tight tracking-tight">{b.course_name || b.purpose}</h3>
-                    </div>
-                  </div>
+      {/* Filter bar */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Tìm theo tiêu đề, người đặt..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full h-9 pl-9 pr-3 text-sm rounded-xl bg-slate-50 border border-slate-200 outline-none focus:border-indigo-400 transition-colors"
+          />
+        </div>
+        <select
+          value={sort}
+          onChange={e => setSort(e.target.value)}
+          className="h-9 px-3 text-xs font-bold rounded-xl bg-slate-50 border border-slate-200 outline-none focus:border-indigo-400"
+        >
+          <option value="oldest">⏰ Chờ lâu nhất</option>
+          <option value="newest">🆕 Mới nhất</option>
+          <option value="date_asc">📅 Ngày học gần nhất</option>
+          <option value="attendees">👥 Số người nhiều nhất</option>
+        </select>
+      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 rounded-[1.5rem] bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/20 transition-all shadow-sm">
-                        <MapPin className="w-7 h-7 text-slate-300 group-hover:text-primary" />
+      {/* Content */}
+      {loading ? (
+        <div className="space-y-3">
+          {[1,2,3].map(i => <div key={i} className="h-24 rounded-2xl bg-slate-100 animate-pulse" />)}
+        </div>
+      ) : list.length === 0 ? (
+        <div className="py-24 text-center bg-white rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-slate-50 flex items-center justify-center">
+            <ClipboardCheck className="w-9 h-9 text-slate-300" />
+          </div>
+          <h3 className="text-lg font-black text-slate-600">
+            {tab === 'pending' ? 'Hàng đợi trống 🧊' : 'Bạn chưa nhận booking nào'}
+          </h3>
+          <p className="text-slate-400 text-sm">
+            {tab === 'pending' ? 'Hiện không có yêu cầu nào chờ xem xét.' : 'Nhận một booking từ tab "Chờ xem xét" để bắt đầu.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {list.map(b => {
+            const hours = b.submitted_at ? differenceInHours(new Date(), parseISO(b.submitted_at)) : 0;
+            const isOverdue = tab === 'mine' && hours > 24;
+            return (
+              <motion.div
+                key={b.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                  'bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all overflow-hidden',
+                  isOverdue ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200'
+                )}
+              >
+                <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  {/* Left: info */}
+                  <div className="flex-1 space-y-1 min-w-0">
+                    {isOverdue && (
+                      <div className="flex items-center gap-1 text-[11px] font-black text-rose-600 mb-1">
+                        <AlertTriangle className="w-3 h-3" /> Cần xử lý sớm — đã cầm {hours}h
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Phòng học</p>
-                        <p className="font-black text-slate-700 tracking-tight">{b.class_name}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 rounded-[1.5rem] bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/20 transition-all shadow-sm">
-                        <Users className="w-7 h-7 text-slate-300 group-hover:text-primary" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sức chứa</p>
-                        <p className="font-black text-slate-700 tracking-tight">{b.attendee_count} người</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 rounded-[1.5rem] bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/20 transition-all shadow-sm">
-                        <User className="w-7 h-7 text-slate-300 group-hover:text-primary" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Người tạo</p>
-                        <p className="font-black text-slate-700 tracking-tight">{b.creator_name}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="lg:w-96 bg-slate-50/50 rounded-[2.8rem] m-2 p-10 flex flex-col justify-between items-center text-center gap-8 border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/10 transition-all duration-500 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-8 opacity-[0.03] rotate-12 pointer-events-none">
-                    <Calendar className="w-40 h-40" />
-                  </div>
-                  <div className="space-y-3 relative z-10">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Lịch trình</p>
-                    <p className="text-3xl font-black text-slate-800 tracking-tight leading-none">{b.slot_name}</p>
-                    <div className="bg-white px-6 py-2 rounded-2xl border border-slate-100 shadow-sm inline-block">
-                       <p className="text-xs text-primary font-black uppercase tracking-widest">
-                         {safeFormat(b.date, 'EEEE, dd/MM/yyyy')}
-                       </p>
-                    </div>
-                  </div>
-                  <div className="w-full space-y-4 relative z-10">
-                    <button onClick={() => handleClaim(b.id)} className="w-full py-6 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.3em] rounded-[1.8rem] shadow-2xl shadow-slate-900/20 hover:bg-black hover:scale-[1.03] active:scale-95 transition-all flex items-center justify-center gap-3 group/btn">
-                      <Zap className="w-5 h-5 fill-primary text-primary group-hover:scale-110 transition-transform" />
-                      <span>NHẬN REVIEW</span>
-                    </button>
-                    <Link href={`/bookings/${b.id}`} className="inline-flex items-center gap-3 text-[10px] font-black text-slate-400 hover:text-primary uppercase tracking-[0.2em] transition-all group/link">
-                      <span>XEM CHI TIẾT</span>
-                      <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
+                    )}
+                    <Link href={`/reviewer/evaluate/${b.id}`} className="font-black text-slate-800 hover:text-indigo-600 transition-colors text-base leading-tight truncate block">
+                      {b.course_name || b.purpose}
                     </Link>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
+                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{b.class_name}</span>
+                      <span className="flex items-center gap-1"><Users className="w-3 h-3" />{b.attendee_count} người</span>
+                      <span>{b.creator_name}</span>
+                      <span className="flex items-center gap-1 text-slate-400">📅 {safeFormat(b.date, 'EEE dd/MM/yyyy', { locale: vi })}</span>
+                    </div>
+                  </div>
+
+                  {/* Center: wait badge */}
+                  <div className="flex-shrink-0">
+                    <WaitBadge submittedAt={b.submitted_at} />
+                    {tab === 'mine' && b.claimed_at && (
+                      <p className="text-[10px] text-slate-400 mt-1">Nhận lúc {safeFormat(b.claimed_at, 'HH:mm dd/MM')}</p>
+                    )}
+                  </div>
+
+                  {/* Right: actions */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {tab === 'pending' && (
+                      <>
+                        <button
+                          onClick={() => setPreview(b)}
+                          className="h-9 px-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all"
+                        >
+                          Xem nhanh
+                        </button>
+                        <button
+                          onClick={() => handleClaim(b.id)}
+                          className="h-9 px-4 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all flex items-center gap-1.5"
+                        >
+                          <Zap className="w-3.5 h-3.5" /> Nhận xem xét
+                        </button>
+                      </>
+                    )}
+                    {tab === 'mine' && (
+                      <>
+                        <button
+                          onClick={() => setUnclaimId(b.id)}
+                          className="h-9 px-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-400 hover:text-rose-600 hover:border-rose-200 transition-all"
+                        >
+                          ↩ Unclaim
+                        </button>
+                        <Link
+                          href={`/reviewer/evaluate/${b.id}`}
+                          className="h-9 px-4 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all flex items-center gap-1.5"
+                        >
+                          Tiếp tục <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </>
+                    )}
                   </div>
                 </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Quick Preview Panel */}
+      <AnimatePresence>
+        {preview && (
+          <div className="fixed inset-0 z-[100] flex justify-end">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"
+              onClick={() => setPreview(null)}
+            />
+            <motion.div
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-md bg-white shadow-2xl overflow-y-auto"
+            >
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+                <h3 className="font-black text-slate-800">Xem nhanh</h3>
+                <button onClick={() => setPreview(null)} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="w-4 h-4 text-slate-500" /></button>
               </div>
-            </div>
-          ))
-        ) : (
-          <div className="py-32 text-center space-y-8 bg-white rounded-[4rem] border border-slate-100 shadow-2xl shadow-slate-200/30">
-            <div className="w-44 h-44 bg-slate-50 rounded-[4rem] flex items-center justify-center mx-auto shadow-inner relative group">
-              <div className="absolute inset-0 bg-primary/5 rounded-[4rem] animate-pulse group-hover:scale-110 transition-transform" />
-              <ClipboardCheck className="w-20 h-20 text-slate-200 relative z-10 group-hover:text-primary/20 transition-colors" />
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-4xl font-black text-slate-800 tracking-tight uppercase">Hàng đợi trống 🧊</h3>
-              <p className="text-slate-400 font-bold max-w-sm mx-auto leading-relaxed italic">Hiện tại không có yêu cầu nào đang chờ xử lý. Hãy quay lại sau!</p>
-            </div>
-            <button onClick={() => loadBookings()} className="px-12 py-6 bg-white border-2 border-slate-100 rounded-[2rem] text-[10px] font-black text-slate-400 hover:border-primary hover:text-primary hover:bg-primary/5 hover:scale-105 transition-all uppercase tracking-[0.25em] flex items-center gap-4 mx-auto shadow-sm">
-              <RefreshCcw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-              <span>LÀM MỚI DANH SÁCH</span>
-            </button>
+              <div className="p-6 space-y-5">
+                <div>
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Tiêu đề</p>
+                  <p className="font-black text-slate-800 text-lg leading-tight">{preview.course_name || preview.purpose}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><p className="text-[11px] font-black text-slate-400 uppercase">Phòng</p><p className="font-bold text-slate-700">{preview.class_name}</p></div>
+                  <div><p className="text-[11px] font-black text-slate-400 uppercase">Số người</p><p className="font-bold text-slate-700">{preview.attendee_count}</p></div>
+                  <div><p className="text-[11px] font-black text-slate-400 uppercase">Ngày học</p><p className="font-bold text-slate-700">{safeFormat(preview.date, 'dd/MM/yyyy')}</p></div>
+                  <div><p className="text-[11px] font-black text-slate-400 uppercase">Ca học</p><p className="font-bold text-slate-700">{preview.slot_name}</p></div>
+                </div>
+                {preview.description && (
+                  <div>
+                    <p className="text-[11px] font-black text-slate-400 uppercase mb-1">Mục đích</p>
+                    <p className="text-sm text-slate-600 bg-slate-50 rounded-xl p-3 border border-slate-100">{preview.description}</p>
+                  </div>
+                )}
+                <div><p className="text-[11px] font-black text-slate-400 uppercase mb-1">Thời gian chờ</p><WaitBadge submittedAt={preview.submitted_at} /></div>
+              </div>
+              <div className="p-5 border-t border-slate-100 space-y-2 sticky bottom-0 bg-white">
+                <button
+                  onClick={() => { setPreview(null); handleClaim(preview.id); }}
+                  className="w-full h-11 bg-indigo-600 text-white font-black text-sm rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <Zap className="w-4 h-4" /> Nhận xem xét ngay
+                </button>
+                <Link
+                  href={`/reviewer/evaluate/${preview.id}`}
+                  className="w-full h-9 border border-slate-200 text-slate-500 font-bold text-xs rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Xem chi tiết (không claim)
+                </Link>
+              </div>
+            </motion.div>
           </div>
         )}
-      </div>
+      </AnimatePresence>
+
+      {/* Unclaim Confirm Dialog */}
+      <AnimatePresence>
+        {unclaimId && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setUnclaimId(null)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-sm space-y-4">
+              <h3 className="font-black text-slate-800">↩ Trả lại hàng đợi?</h3>
+              <p className="text-sm text-slate-500">Booking sẽ quay lại hàng đợi chung và có thể được Reviewer khác nhận.</p>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setUnclaimId(null)} className="h-9 px-4 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50">Hủy</button>
+                <button onClick={handleUnclaim} disabled={unclaimProcessing}
+                  className="h-9 px-5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-50">
+                  {unclaimProcessing ? 'Đang xử lý...' : 'Xác nhận trả'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

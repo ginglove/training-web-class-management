@@ -14,6 +14,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
       - ./database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+      - ./database/migrations/003_reviewer_api.sql:/docker-entrypoint-initdb.d/03_reviewer_api.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d class_booking"]
       interval: 5s

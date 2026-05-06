@@ -13,7 +13,7 @@ export default function PlaceholderPage() {
         </div>
         <div>
           <h2 className="text-xl font-bold">Page Coming Soon</h2>
-          <p className="text-slate-500">We're working hard to bring you this feature according to SRS v3.0 requirements.</p>
+          <p className="text-slate-500">We&apos;re working hard to bring you this feature according to SRS v3.0 requirements.</p>
         </div>
       </Card>
     </div>

@@ -29,8 +29,20 @@ const nextConfig = {
         destination: `http://localhost:${process.env.BOOKING_SERVICE_PORT || 8012}/api/admin/:path*`
       },
       {
+        source: '/api/calendar/:path*',
+        destination: `http://localhost:${process.env.BOOKING_SERVICE_PORT || 8012}/api/calendar/:path*`
+      },
+      {
         source: '/api/notifications/:path*',
         destination: `http://localhost:${process.env.NOTIF_SERVICE_PORT || 8013}/api/notifications/:path*`
+      },
+      {
+        source: '/api/reviewer/:path*',
+        destination: `http://localhost:${process.env.BOOKING_SERVICE_PORT || 8012}/api/reviewer/:path*`
+      },
+      {
+        source: '/api/approver/:path*',
+        destination: `http://localhost:${process.env.BOOKING_SERVICE_PORT || 8012}/api/approver/:path*`
       }
     ];
   }

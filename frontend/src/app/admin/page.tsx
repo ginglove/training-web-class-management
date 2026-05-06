@@ -11,11 +11,7 @@ import {
   Settings, 
   Activity, 
   Home, 
-  Shield, 
-  Bell, 
-  CheckCircle,
-  Sparkles,
-  ShieldCheck,
+  ShieldCheck, 
   Zap,
   ArrowUpRight,
   Database,
@@ -24,16 +20,34 @@ import {
   ChevronRight,
   Lock,
   Command,
-  Clock
+  Clock,
+  CheckCircle,
+  Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+
+interface UserStat {
+  role: string;
+  count: string;
+}
+
+interface AdminStats {
+  users: UserStat[];
+  bookings: {
+    total: number;
+    approved: number;
+    pending_review: number;
+    pending_approval: number;
+    rejected: number;
+    cancelled: number;
+  };
+}
 
 export default function AdminPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [stats, setStats] = React.useState<any>(null);
+  const [stats, setStats] = React.useState<AdminStats | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -43,13 +57,20 @@ export default function AdminPage() {
     }
 
     fetchApi('/api/admin/stats')
-      .then(setStats)
+      .then((res) => setStats(res.data || res))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [user, router]);
 
   const adminModules = [
-    { label: 'Người dùng', count: stats?.users?.reduce((acc: number, curr: any) => acc + parseInt(curr.count), 0) || 0, href: '/admin/users', icon: Users, color: 'blue', desc: 'Quản lý quyền & truy cập' },
+    { 
+      label: 'Người dùng', 
+      count: stats?.users?.reduce((acc: number, curr: UserStat) => acc + parseInt(curr.count), 0) || 0, 
+      href: '/admin/users', 
+      icon: Users, 
+      color: 'blue', 
+      desc: 'Quản lý quyền & truy cập' 
+    },
     { label: 'Phòng học', count: '8', href: '/admin/rooms', icon: Home, color: 'amber', desc: 'Cấu hình phòng đào tạo' },
     { label: 'Giám sát', count: stats?.bookings?.total || 0, href: '/admin/bookings', icon: Activity, color: 'emerald', desc: 'Theo dõi booking toàn cầu' },
     { label: 'Cấu hình', count: 'v4.0', href: '/admin/config', icon: Settings, color: 'indigo', desc: 'Quy tắc nghiệp vụ hệ thống' },
@@ -89,7 +110,7 @@ export default function AdminPage() {
 
       {/* Module Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {adminModules.map((module, i) => {
+        {adminModules.map((module) => {
           const Icon = module.icon;
           return (
             <Link key={module.href} href={module.href}>
@@ -223,10 +244,10 @@ export default function AdminPage() {
               <p className="text-xs text-slate-400 font-bold leading-relaxed">
                 Quản lý các thông số cốt lõi, phiên bản API và cấu hình môi trường.
               </p>
-              <button className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3 group/btn">
+              <Link href="/admin/config" className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3 group/btn">
                 <span>Vào trang cấu hình</span>
                 <ChevronRight className="w-4 h-4 opacity-30 group-hover/btn:translate-x-1 group-hover/btn:opacity-100 transition-all" />
-              </button>
+              </Link>
             </div>
           </Card>
         </div>

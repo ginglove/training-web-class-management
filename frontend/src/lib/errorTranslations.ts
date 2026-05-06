@@ -18,22 +18,24 @@ export const ERROR_MESSAGES: Record<string, string> = {
   ERR_CONFLICT_BOOKING: 'Phòng vừa được đặt bởi người khác. Vui lòng chọn thời gian khác.', // LOGIC-BK-EXT-001
 };
 
-export function getErrorMessage(err: any, fallbackMessage: string = 'Đã có lỗi xảy ra'): string {
+export function getErrorMessage(err: unknown, fallbackMessage: string = 'Đã có lỗi xảy ra'): string {
+  const errorObj = err as Record<string, unknown> | null;
+  
   // 1. Try to match exact error codes
-  if (err?.error && ERROR_MESSAGES[err.error]) {
+  if (typeof errorObj?.error === 'string' && ERROR_MESSAGES[errorObj.error]) {
     // Some error messages contain dynamic data (like number of bookings). 
     // We can use the default translation, or append the original message for context if needed.
     // But for ERR_TIME_TOO_SOON we strictly return the requested translation.
-    if (err.error === 'ERR_CANNOT_CLOSE_CLASS' && err.message) {
+    if (errorObj.error === 'ERR_CANNOT_CLOSE_CLASS' && typeof errorObj.message === 'string') {
        // Extracting the dynamic part if possible, or just using the safe translated one.
-       return `${ERROR_MESSAGES[err.error]} (${err.message})`;
+       return `${ERROR_MESSAGES[errorObj.error]} (${errorObj.message})`;
     }
-    return ERROR_MESSAGES[err.error];
+    return ERROR_MESSAGES[errorObj.error];
   }
   
   // 2. Try to translate common english messages
-  if (err?.message) {
-    const msg = err.message.toLowerCase();
+  if (typeof errorObj?.message === 'string') {
+    const msg = errorObj.message.toLowerCase();
     if (msg.includes('invalid credentials')) return 'Email hoặc mật khẩu không chính xác';
     if (msg.includes('already registered')) return 'Email hoặc tên đăng nhập đã được sử dụng';
     if (msg.includes('account locked') || msg.includes('too many failed attempts')) return 'Tài khoản đã bị khóa do đăng nhập sai nhiều lần';
@@ -45,7 +47,7 @@ export function getErrorMessage(err: any, fallbackMessage: string = 'Đã có l�
     if (msg.includes('conflict')) return ERROR_MESSAGES.ERR_CONFLICT_BOOKING;
 
     // Return original message if no translation found
-    return err.message;
+    return errorObj.message as string;
   }
   
   return fallbackMessage;

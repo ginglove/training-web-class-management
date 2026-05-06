@@ -8,25 +8,29 @@ import {
   Users, 
   MapPin, 
   MonitorPlay, 
-  Info, 
   ChevronRight, 
-  Clock, 
   Search, 
   Filter,
   Sparkles,
   Building,
-  ArrowUpRight,
-  LayoutGrid,
-  Zap,
-  Calendar
+  Zap
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface Room {
+  id: string;
+  name: string;
+  location: string;
+  capacity: number;
+  description?: string;
+  is_active: boolean;
+}
+
 export default function RoomsPage() {
-  const [rooms, setRooms] = React.useState<any[]>([]);
+  const [rooms, setRooms] = React.useState<Room[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [filterCapacity, setFilterCapacity] = React.useState<string>('all');
@@ -35,7 +39,7 @@ export default function RoomsPage() {
     fetchApi('/api/rooms').then(res => {
       setRooms(res);
       setLoading(false);
-    }).catch(err => {
+    }).catch((err: unknown) => {
       console.error(err);
       setLoading(false);
     });
@@ -139,7 +143,7 @@ export default function RoomsPage() {
                     <div className="space-y-3">
                       <h3 className="text-3xl font-black text-slate-800 tracking-tight group-hover:text-primary transition-colors leading-none">{room.name}</h3>
                       <p className="text-slate-400 font-bold text-sm line-clamp-2 leading-relaxed italic">
-                        "{room.description || 'Không có mô tả chi tiết cho phòng học này.'}"
+                        &quot;{room.description || 'Không có mô tả chi tiết cho phòng học này.'}&quot;
                       </p>
                     </div>
                     

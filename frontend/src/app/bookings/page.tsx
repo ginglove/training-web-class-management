@@ -2,13 +2,11 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input as CustomInput } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchApi } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
 import { 
   Plus, 
   Filter, 
@@ -21,7 +19,6 @@ import {
   ChevronRight, 
   Activity, 
   Sparkles,
-  ArrowUpRight,
   MoreVertical,
   Layers,
   Zap
@@ -29,33 +26,43 @@ import {
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+
+interface Booking {
+  id: string;
+  course_name?: string;
+  purpose?: string;
+  class_name: string;
+  date: string;
+  slot_name: string;
+  status: string;
+  creator_name?: string;
+}
 
 export default function BookingsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [bookings, setBookings] = React.useState<any[]>([]);
+  const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [viewMode, setViewMode] = React.useState<'grid' | 'table'>('table');
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('ALL');
 
-  React.useEffect(() => {
-    loadBookings();
-  }, [statusFilter]);
-
-  const loadBookings = async () => {
+  const loadBookings = React.useCallback(async () => {
     try {
       setLoading(true);
       const url = statusFilter === 'ALL' ? '/api/bookings' : `/api/bookings?status=${statusFilter}`;
       const res = await fetchApi(url);
       setBookings(res.data || []);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
+
+  React.useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
 
   const filtered = bookings.filter(b => 
     (b.course_name || b.purpose || '').toLowerCase().includes(search.toLowerCase()) ||

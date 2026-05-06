@@ -16,13 +16,10 @@ import {
   ArrowRight, 
   Eye, 
   EyeOff, 
-  Sparkles,
   Command,
-  ChevronRight,
   Fingerprint,
   Zap
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export default function Home() {
   const router = useRouter();
@@ -66,7 +63,7 @@ export default function Home() {
       } else {
         router.push('/home');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setGeneralError(getErrorMessage(err, 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'));
     } finally {
       setLoading(false);

@@ -1,31 +1,40 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { Card } from '@/components/ui/Card';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchApi } from '@/lib/api';
 import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
 import { 
-  User, Mail, Building, Shield, Save, 
-  MonitorSmartphone, History, BarChart3, 
+  User, Mail, Building, Shield, 
+  MonitorSmartphone, History, BarChart3,
   Upload, LogOut, ChevronRight, CheckCircle2,
   Lock, Settings, Smartphone, LayoutDashboard,
-  Zap, ArrowUpRight, FileText, Trash2, LogOut as LogOutIcon,
+  Zap, 
   ShieldCheck, RefreshCcw, Save as SaveIcon,
-  Globe, Key, AlertTriangle, Info
+  Globe, Key, AlertTriangle, Trash2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Badge } from '@/components/ui/Badge';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+
+interface Stats {
+  total: number;
+  approved: number;
+  rejected: number;
+}
+
+// Removed HistoryItem interface since history state was removed
+
+type TabId = 'info' | 'security' | 'history' | 'stats';
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuthStore();
   const [loading, setLoading] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState('info');
+  const [activeTab, setActiveTab] = React.useState<TabId>('info');
   
   const [formData, setFormData] = React.useState({
     full_name: user?.full_name || '',
@@ -33,8 +42,7 @@ export default function ProfilePage() {
     department: user?.department || '',
     username: user?.username || ''
   });
-  const [stats, setStats] = React.useState<any>(null);
-  const [history, setHistory] = React.useState<any[]>([]);
+  const [stats, setStats] = React.useState<Stats | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
   const isChanged = React.useMemo(() => {
@@ -49,16 +57,16 @@ export default function ProfilePage() {
     try {
       const res = await fetchApi('/api/bookings/stats');
       setStats(res);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load stats', err);
     }
   }, []);
 
   const loadHistory = React.useCallback(async () => {
     try {
-      const res = await fetchApi('/api/bookings?limit=5');
-      setHistory(res.data || []);
-    } catch (err) {
+      await fetchApi('/api/bookings?limit=5');
+      // history is unused in UI, just calling API if needed for side effects or future use
+    } catch (err: unknown) {
       console.error('Failed to load history', err);
     }
   }, []);
@@ -87,19 +95,21 @@ export default function ProfilePage() {
       });
       updateUser(updatedUser);
       toast.success('Cập nhật hồ sơ thành công!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Cập nhật thất bại'));
-      if (err.errors) setErrors(err.errors);
+      if (err && typeof err === 'object' && 'errors' in err) {
+        setErrors((err as { errors: Record<string, string> }).errors);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const tabs = [
-    { id: 'info', label: 'Thông tin cá nhân', icon: User },
-    { id: 'security', label: 'Bảo mật & Phiên', icon: Shield },
-    { id: 'history', label: 'Lịch sử hoạt động', icon: History },
-    ...(user?.role === 'CREATOR' ? [{ id: 'stats', label: 'Thống kê booking', icon: BarChart3 }] : []),
+    { id: 'info' as TabId, label: 'Thông tin cá nhân', icon: User },
+    { id: 'security' as TabId, label: 'Bảo mật & Phiên', icon: Shield },
+    { id: 'history' as TabId, label: 'Lịch sử hoạt động', icon: History },
+    ...(user?.role === 'CREATOR' ? [{ id: 'stats' as TabId, label: 'Thống kê booking', icon: BarChart3 }] : []),
   ];
 
   return (
@@ -124,8 +134,6 @@ export default function ProfilePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         {/* Sidebar Navigation */}
-        {/* Sidebar Navigation */}
-        {/* Sidebar Navigation */}
         <div className="lg:col-span-4 space-y-10">
           <Card className="bg-white rounded-[3.5rem] border-2 border-slate-900 p-10 text-center relative overflow-hidden group shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)]">
             {/* Background Pattern */}
@@ -141,7 +149,7 @@ export default function ProfilePage() {
                 className="block w-40 h-40 bg-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-[12px_12px_0px_0px_rgba(15,23,42,1)] border-4 border-slate-900 overflow-hidden group/avatar cursor-pointer relative transition-transform group-hover:-translate-y-2 group-hover:-translate-x-2 duration-500"
               >
                 {user?.avatar_url ? (
-                  <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  <Image src={user.avatar_url} alt="Avatar" width={160} height={160} className="w-full h-full object-cover" unoptimized />
                 ) : (
                   <span className="text-6xl font-black text-slate-900 uppercase">
                     {user?.full_name?.charAt(0) || 'U'}
@@ -295,7 +303,7 @@ export default function ProfilePage() {
                       <div className="relative">
                         <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-200" />
                         <Input 
-                          value={user?.email}
+                          value={user?.email || ''}
                           disabled
                           className="pl-16 h-16 bg-slate-50 text-slate-300 border-2 border-slate-100 border-dashed rounded-[2rem] font-black text-lg cursor-not-allowed"
                         />
@@ -309,7 +317,7 @@ export default function ProfilePage() {
                       <div className="relative">
                         <User className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-200 opacity-50" />
                         <Input 
-                          value={user?.username || user?.email?.split('@')[0]}
+                          value={user?.username || user?.email?.split('@')[0] || ''}
                           disabled
                           className="pl-16 h-16 bg-slate-50 text-slate-300 border-2 border-slate-100 border-dashed rounded-[2rem] font-black text-lg cursor-not-allowed"
                         />
@@ -353,7 +361,7 @@ export default function ProfilePage() {
                       <div className="relative">
                         <Shield className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-200" />
                         <Input 
-                          value={user?.role}
+                          value={user?.role || ''}
                           disabled
                           className="pl-16 h-16 bg-slate-50 text-slate-300 border-2 border-slate-100 border-dashed rounded-[2rem] font-black text-lg cursor-not-allowed"
                         />
@@ -490,28 +498,31 @@ export default function ProfilePage() {
                     {[
                       { device: 'iPhone 13 - Safari Mobile', ip: '27.72.105.18', loc: 'Hồ Chí Minh, VN', time: '2 giờ trước', icon: Smartphone },
                       { device: 'Windows PC - Edge', ip: '113.161.45.102', loc: 'Đà Nẵng, VN', time: '1 ngày trước', icon: MonitorSmartphone }
-                    ].map((session, i) => (
-                      <div key={i} className="flex flex-col lg:flex-row lg:items-center justify-between p-10 bg-white border-2 border-slate-100 rounded-[2.5rem] group hover:border-slate-900 transition-all duration-500 gap-8">
-                        <div className="flex items-center gap-6">
-                          <div className="w-16 h-16 bg-slate-50 border-2 border-slate-100 group-hover:border-slate-900 group-hover:bg-white text-slate-300 group-hover:text-slate-900 rounded-2xl flex items-center justify-center transition-all duration-500">
-                            <session.icon className="w-8 h-8" />
-                          </div>
-                          <div className="space-y-1">
-                            <div className="font-black text-slate-800 text-xl tracking-tight uppercase">{session.device}</div>
-                            <div className="flex items-center gap-2">
-                              <Globe className="w-4 h-4 text-slate-300 group-hover:text-slate-400" />
-                              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                                IP: {session.ip} • {session.loc} • {session.time}
-                              </span>
+                    ].map((session, i) => {
+                      const SessionIcon = session.icon;
+                      return (
+                        <div key={i} className="flex flex-col lg:flex-row lg:items-center justify-between p-10 bg-white border-2 border-slate-100 rounded-[2.5rem] group hover:border-slate-900 transition-all duration-500 gap-8">
+                          <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 bg-slate-50 border-2 border-slate-100 group-hover:border-slate-900 group-hover:bg-white text-slate-300 group-hover:text-slate-900 rounded-2xl flex items-center justify-center transition-all duration-500">
+                              <SessionIcon className="w-8 h-8" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="font-black text-slate-800 text-xl tracking-tight uppercase">{session.device}</div>
+                              <div className="flex items-center gap-2">
+                                <Globe className="w-4 h-4 text-slate-300 group-hover:text-slate-400" />
+                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                                  IP: {session.ip} • {session.loc} • {session.time}
+                                </span>
+                              </div>
                             </div>
                           </div>
+                          <button className="h-14 px-8 bg-white border-2 border-slate-200 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all shadow-lg active:scale-95 flex items-center gap-3">
+                            <LogOut className="w-5 h-5" />
+                            Đăng xuất khỏi thiết bị này
+                          </button>
                         </div>
-                        <button className="h-14 px-8 bg-white border-2 border-slate-200 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all shadow-lg active:scale-95 flex items-center gap-3">
-                          <LogOut className="w-5 h-5" />
-                          Đăng xuất khỏi thiết bị này
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -634,11 +645,11 @@ export default function ProfilePage() {
                     { label: 'Bị từ chối', value: stats?.rejected || 4, icon: Trash2, color: 'rose', text: 'text-rose-600' },
                     { label: 'Tỉ lệ duyệt', value: '83%', icon: Zap, color: 'amber', text: 'text-amber-600' }
                   ].map((stat, i) => {
-                    const Icon = stat.icon;
+                    const StatIcon = stat.icon;
                     return (
                       <div key={i} className="p-6 bg-white border-2 border-slate-900 rounded-3xl shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] space-y-4">
                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border-2 border-slate-900 shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] text-white", `bg-${stat.color}-500`)}>
-                          <Icon className="w-5 h-5" />
+                          <StatIcon className="w-5 h-5" />
                         </div>
                         <div className="space-y-1">
                           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">{stat.label}</p>

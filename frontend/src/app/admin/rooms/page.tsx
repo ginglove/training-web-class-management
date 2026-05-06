@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { fetchApi } from '@/lib/api';
@@ -11,33 +10,35 @@ import {
   MapPin, 
   Users, 
   Settings2, 
-  Trash2, 
-  CalendarDays, 
   X,
   Building,
   Sparkles,
-  Info,
-  ChevronRight,
   MonitorPlay,
   Save,
-  Home,
-  Zap,
-  ArrowUpRight,
-  Gavel
+  Home
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface Room {
+  id: string;
+  name: string;
+  location: string;
+  capacity: number;
+  description?: string;
+  status: string;
+}
+
 export default function AdminRoomsPage() {
-  const [rooms, setRooms] = React.useState<any[]>([]);
+  const [rooms, setRooms] = React.useState<Room[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [editingRoom, setEditingRoom] = React.useState<any>(null);
+  const [editingRoom, setEditingRoom] = React.useState<Room | null>(null);
   const [formData, setFormData] = React.useState({
     name: '',
     location: '',
@@ -51,7 +52,7 @@ export default function AdminRoomsPage() {
     try {
       const data = await fetchApi('/api/rooms');
       setRooms(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Lỗi khi tải danh sách phòng'));
     } finally {
       setLoading(false);
@@ -62,7 +63,7 @@ export default function AdminRoomsPage() {
     loadRooms();
   }, []);
 
-  const openModal = (room: any = null) => {
+  const openModal = (room: Room | null = null) => {
     setFormErrors({});
     if (room) {
       setEditingRoom(room);
@@ -115,7 +116,7 @@ export default function AdminRoomsPage() {
       toast.success(editingRoom ? 'Cập nhật phòng thành công ✅' : 'Thêm phòng mới thành công ✅');
       setIsModalOpen(false);
       loadRooms();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Thao tác thất bại'));
     }
   };
@@ -156,7 +157,7 @@ export default function AdminRoomsPage() {
             />
           </div>
           <button 
-            onClick={() => openModal()}
+            onClick={() => openModal(null)}
             className="w-full sm:w-auto px-10 h-14 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-primary/30 hover:scale-[1.03] active:scale-95 transition-all flex items-center justify-center gap-3"
           >
             <Plus className="w-5 h-5 stroke-[3]" />
@@ -204,7 +205,7 @@ export default function AdminRoomsPage() {
                         </div>
                         <div className="space-y-1">
                           <p className="font-black text-slate-800 text-xl tracking-tight leading-none group-hover:text-primary transition-colors">{r.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 italic line-clamp-1 max-w-xs">"{r.description || 'Không có mô tả'}"</p>
+                          <p className="text-[10px] font-bold text-slate-400 italic line-clamp-1 max-w-xs">&quot;{r.description || 'Không có mô tả'}&quot;</p>
                         </div>
                       </div>
                     </td>

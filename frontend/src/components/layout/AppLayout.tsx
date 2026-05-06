@@ -19,9 +19,6 @@ import {
   Database,
   Lock,
   ChevronDown,
-  Check,
-  Sparkles,
-  Zap,
   Activity,
   Layers,
   Search,
@@ -96,7 +93,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { label: 'Lịch sử xử lý', href: '/reviewer/history', icon: History },
     ];
     if (role === 'APPROVER') return [
-      { label: 'Chờ phê duyệt', href: '/approver/pending', icon: ClipboardCheck },
+      { label: 'Bảng điều khiển', href: '/approver/dashboard', icon: LayoutDashboard },
+      { label: 'Chờ phê duyệt', href: '/approver/queue', icon: ClipboardCheck },
       { label: 'Lịch sử phê duyệt', href: '/approver/history', icon: History },
     ];
     return [];

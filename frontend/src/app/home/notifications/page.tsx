@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Card } from '@/components/ui/Card';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { Bell, CheckCircle2, History, Trash2, Calendar, Filter } from 'lucide-react';
+import { Bell, CheckCircle2, History, Calendar, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';

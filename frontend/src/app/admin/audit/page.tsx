@@ -1,35 +1,34 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
-import { Card } from '@/components/ui/Card';
 import { fetchApi } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
 import { Input as CustomInput } from '@/components/ui/Input';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import { 
-  Database, 
   Search, 
-  Filter, 
   History, 
-  User, 
   Info, 
   ArrowRight, 
   Clock, 
-  AlertCircle,
   Sparkles,
   ShieldCheck,
-  ChevronRight,
-  Activity,
-  ArrowUpRight,
   ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+
+interface AuditLog {
+  id: string;
+  actor_name: string;
+  actor_role: string;
+  from_status: string;
+  to_status: string;
+  comment?: string;
+  created_at: string;
+}
 
 export default function AuditLogPage() {
-  const [logs, setLogs] = React.useState<any[]>([]);
+  const [logs, setLogs] = React.useState<AuditLog[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
 
@@ -38,7 +37,7 @@ export default function AuditLogPage() {
     try {
       const data = await fetchApi('/api/admin/audit');
       setLogs(data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
     } finally {
       setLoading(false);
@@ -165,7 +164,7 @@ export default function AuditLogPage() {
                     </td>
                     <td className="p-8">
                       <p className="text-sm font-bold text-slate-500 italic max-w-sm line-clamp-2 leading-relaxed group-hover:text-slate-800 transition-colors">
-                        "{l.comment || 'Không có ghi chú kèm theo.'}"
+                        &quot;{l.comment || 'Không có ghi chú kèm theo.'}&quot;
                       </p>
                     </td>
                     <td className="p-8 text-right">

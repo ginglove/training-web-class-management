@@ -1,21 +1,19 @@
 'use client';
 
 import * as React from 'react';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { fetchApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import { 
   Calendar, Clock, MapPin, Search, Filter, 
-  MoreVertical, CheckCircle2, XCircle, AlertCircle, 
+  XCircle, AlertCircle, 
   LayoutGrid, List, Copy, ChevronRight, ArrowRight,
   Plus, History, ShieldCheck, Zap,
-  Activity, Layers, Sparkles, User, RefreshCcw,
-  ArrowUpRight, FileText, CheckCircle, ChevronLeft,
-  Trash2, ExternalLink, Info, Users
+  Activity, Layers, Sparkles, RefreshCcw,
+  ArrowUpRight, FileText, CheckCircle,
+  Trash2, Info, Users, CheckCircle2
 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { toast } from 'react-hot-toast';
@@ -23,10 +21,27 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface Booking {
+  id: string;
+  course_name?: string;
+  purpose?: string;
+  class_name?: string;
+  class_location?: string;
+  date: string;
+  slot_name: string;
+  attendee_count: number;
+  reason?: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+  processed_at?: string;
+  reviewer_note?: string;
+}
+
 export default function MyBookingsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [bookings, setBookings] = React.useState<any[]>([]);
+  const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [viewMode, setViewMode] = React.useState<'card' | 'table'>('card');
   const [activeTab, setActiveTab] = React.useState('ALL');
@@ -38,7 +53,7 @@ export default function MyBookingsPage() {
     try {
       const res = await fetchApi(`/api/bookings/my-bookings`);
       setBookings(res.data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Lỗi khi tải danh sách booking'));
     } finally {
       setLoading(false);
@@ -73,7 +88,7 @@ export default function MyBookingsPage() {
     return b.status === activeTab;
   });
 
-  const getStatusConfig = (booking: any) => {
+  const getStatusConfig = (booking: Booking) => {
     if (booking.status === 'APPROVED' && new Date(booking.date) < now) {
       return { color: 'bg-slate-100 text-slate-800 border-slate-200', icon: CheckCircle2, label: 'Đã hoàn thành' };
     }
@@ -90,14 +105,14 @@ export default function MyBookingsPage() {
     }
   };
 
-  const handleAction = async (booking: any, action: string) => {
+  const handleAction = async (booking: Booking, action: string) => {
     if (action === 'CANCEL') {
       if (!confirm('Bạn có chắc chắn muốn hủy yêu cầu đặt phòng này?')) return;
       try {
         await fetchApi(`/api/bookings/${booking.id}/cancel`, { method: 'PATCH' });
         toast.success('Đã hủy booking thành công');
         loadMyBookings();
-      } catch (err: any) {
+      } catch (err: unknown) {
         toast.error(getErrorMessage(err, 'Hủy thất bại'));
       }
     } else if (action === 'CLONE') {
@@ -124,7 +139,7 @@ export default function MyBookingsPage() {
               <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-slate-900 leading-none">Booking của tôi 📅</h1>
             </div>
           </div>
-          <p className="text-slate-500 font-bold max-w-xl leading-relaxed text-lg italic">"Duy trì tiến độ đào tạo của bạn với hệ thống quản lý lịch trình thông minh."</p>
+          <p className="text-slate-500 font-bold max-w-xl leading-relaxed text-lg italic">&quot;Duy trì tiến độ đào tạo của bạn với hệ thống quản lý lịch trình thông minh.&quot;</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-6 w-full lg:w-auto p-4 bg-white rounded-[2rem] border border-slate-100 shadow-2xl shadow-slate-200/40">
@@ -226,7 +241,7 @@ export default function MyBookingsPage() {
                  tab === 'UPCOMING' ? 'Sắp tới' : 
                  tab === 'PAST' ? 'Đã qua' : 
                  tab === 'PENDING' ? 'Đang xử lý' :
-                 getStatusConfig({ status: tab }).label}
+                 getStatusConfig({ status: tab } as Booking).label}
               </button>
             ))}
           </div>
@@ -385,7 +400,6 @@ export default function MyBookingsPage() {
                         {booking.course_name || booking.purpose}
                       </h3>
                       
-                      {/* 15.2.2 Chế độ xem Card - Details Enhanced */}
                       <div className="grid grid-cols-1 gap-4 pt-2">
                         <div className="flex items-center text-slate-500 font-bold text-sm">
                           <div className="w-10 h-10 rounded-[1rem] bg-slate-50 flex items-center justify-center mr-4 border border-slate-100 group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all">
@@ -425,7 +439,6 @@ export default function MyBookingsPage() {
                       </div>
                     </div>
 
-                    {/* Timeline Mini & Wait Time */}
                     <div className="space-y-4 pt-4 border-t border-slate-50 group-hover:border-indigo-50 transition-colors">
                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
@@ -454,7 +467,7 @@ export default function MyBookingsPage() {
                                   ? `Đã ${booking.status === 'APPROVED' ? 'duyệt' : 'từ chối'} lúc ${(() => {
                                       try {
                                         return format(new Date(booking.updated_at), 'HH:mm dd/MM');
-                                      } catch (e) {
+                                      } catch {
                                         return 'N/A';
                                       }
                                     })()}`
@@ -465,7 +478,6 @@ export default function MyBookingsPage() {
                     </div>
                   </div>
                   
-                  {/* 15.2.3 Nút hành động theo từng trạng thái */}
                   <div className="bg-slate-50/50 p-8 px-10 flex items-center justify-between border-t-2 border-slate-50 group-hover:bg-indigo-50/30 transition-colors">
                     <div className="flex gap-4">
                       {['REJECTED', 'CANCELLED', 'APPROVED'].includes(booking.status) && (
@@ -501,7 +513,6 @@ export default function MyBookingsPage() {
             })}
           </div>
         ) : (
-          /* 15.2.4 Chế độ xem Table (toggle) */
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

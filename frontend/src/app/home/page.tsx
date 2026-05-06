@@ -10,11 +10,8 @@ import {
   Clock, 
   CheckCircle2, 
   XCircle, 
-  AlertCircle, 
   Calendar, 
   PlusCircle, 
-  ArrowRight, 
-  ClipboardCheck, 
   History,
   Sparkles,
   Activity,
@@ -26,18 +23,39 @@ import {
   Command,
   ChevronRight,
   Layers,
-  CheckCircle,
   MapPin
 } from 'lucide-react';
 import Link from 'next/link';
-import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+
+interface Booking {
+  id: string;
+  course_name?: string;
+  purpose?: string;
+  class_name: string;
+  date: string;
+  slot_name: string;
+  status: string;
+}
+
+interface Stats {
+  draft?: number;
+  processing?: number;
+  approved?: number;
+  total?: number;
+  pending?: number;
+  in_review?: number;
+  processed_today?: number;
+  approved_today?: number;
+  rejected_today?: number;
+  pending_review?: number;
+  pending_approval?: number;
+}
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const [stats, setStats] = React.useState<any>(null);
-  const [recentBookings, setRecentBookings] = React.useState<any[]>([]);
+  const [stats, setStats] = React.useState<Stats | null>(null);
+  const [recentBookings, setRecentBookings] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -48,8 +66,8 @@ export default function DashboardPage() {
           fetchApi('/api/bookings?limit=5')
         ]);
         setStats(statsData);
-        setRecentBookings(bookingsData.data);
-      } catch (err) {
+        setRecentBookings(bookingsData.data || []);
+      } catch (err: unknown) {
         console.error('Failed to load dashboard data', err);
       } finally {
         setLoading(false);
@@ -70,7 +88,7 @@ export default function DashboardPage() {
     }
     if (role === 'REVIEWER') {
       return [
-        { title: 'Chờ xem xét', value: stats?.pending || 0, icon: ClipboardCheck, color: 'amber' },
+        { title: 'Chờ xem xét', value: stats?.pending || 0, icon: Layers, color: 'amber' },
         { title: 'Đang xem xét', value: stats?.in_review || 0, icon: Activity, color: 'blue' },
         { title: 'Xong hôm nay', value: stats?.processed_today || 0, icon: CheckCircle2, color: 'emerald' },
         { title: 'Tổng cộng', value: stats?.total || 0, icon: Layers, color: 'primary' },
@@ -78,7 +96,7 @@ export default function DashboardPage() {
     }
     if (role === 'APPROVER') {
       return [
-        { title: 'Chờ phê duyệt', value: stats?.pending || 0, icon: ClipboardCheck, color: 'amber' },
+        { title: 'Chờ phê duyệt', value: stats?.pending || 0, icon: Layers, color: 'amber' },
         { title: 'Duyệt hôm nay', value: stats?.approved_today || 0, icon: CheckCircle2, color: 'emerald' },
         { title: 'Từ chối hôm nay', value: stats?.rejected_today || 0, icon: XCircle, color: 'rose' },
         { title: 'Tổng cộng', value: stats?.total || 0, icon: ShieldCheck, color: 'primary' },
@@ -105,13 +123,13 @@ export default function DashboardPage() {
     }
     if (role === 'REVIEWER') {
       return [
-        { label: 'Hàng đợi xem xét', href: '/reviewer/pending', icon: ClipboardCheck, primary: true },
+        { label: 'Hàng đợi xem xét', href: '/reviewer/pending', icon: Layers, primary: true },
         { label: 'Lịch sử xử lý', href: '/reviewer/history', icon: History },
       ];
     }
     if (role === 'APPROVER') {
       return [
-        { label: 'Hàng đợi phê duyệt', href: '/approver/pending', icon: ClipboardCheck, primary: true },
+        { label: 'Hàng đợi phê duyệt', href: '/approver/queue', icon: Layers, primary: true },
         { label: 'Lịch sử phê duyệt', href: '/approver/history', icon: History },
       ];
     }
@@ -134,8 +152,8 @@ export default function DashboardPage() {
              </div>
              <div className="space-y-1">
                 <div className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-[0.2em]">
-                  <Sparkles className="w-3 h-3" />
-                  <span>Tổng quan hệ thống</span>
+                   <Sparkles className="w-3 h-3" />
+                   <span>Tổng quan hệ thống</span>
                 </div>
                 <h1 className="text-4xl font-black tracking-tight text-slate-800">Xin chào, {user?.full_name?.split(' ')[0] || 'User'}! 👋</h1>
              </div>

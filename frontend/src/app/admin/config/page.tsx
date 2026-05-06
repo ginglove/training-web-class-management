@@ -5,22 +5,13 @@ import { Card } from '@/components/ui/Card';
 import { 
   Save, 
   RefreshCcw, 
-  BellRing, 
   ShieldCheck, 
   Clock,
   Sparkles,
   Command,
-  Settings,
-  Lock,
-  Globe,
-  Zap,
-  Info,
-  CheckCircle2,
   AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
 
 export default function AdminConfigPage() {
   const [saving, setSaving] = React.useState(false);
