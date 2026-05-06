@@ -59,6 +59,7 @@ CREATE TABLE users (
   status              user_status NOT NULL DEFAULT 'ACTIVE',
   email_verified      BOOLEAN NOT NULL DEFAULT FALSE,
   phone               VARCHAR(20),
+  internal_notes      TEXT,
   department          VARCHAR(100),
   avatar_url          VARCHAR(500),
   must_change_password BOOLEAN NOT NULL DEFAULT FALSE,

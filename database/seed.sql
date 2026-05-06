@@ -12,17 +12,17 @@ INSERT INTO time_slots (slot_name, start_time, end_time, sort_order) VALUES
 
 -- Users (password: Password@123)
 -- bcrypt hash of 'Password@123' with 12 rounds
-INSERT INTO users (id, email, username, password_hash, full_name, role, status, email_verified, department) VALUES
-  ('11111111-0000-0000-0000-000000000001', 'admin@training.vn',      'admin',      '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'System Admin',       'ADMIN',    'ACTIVE',   true, 'IT'),
-  ('22222222-0000-0000-0000-000000000001', 'approver1@training.vn',  'approver1',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Nguyen Van Approver','APPROVER', 'ACTIVE',   true, 'Management'),
-  ('22222222-0000-0000-0000-000000000002', 'approver2@training.vn',  'approver2',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Tran Thi Approver',  'APPROVER', 'ACTIVE',   true, 'Management'),
-  ('33333333-0000-0000-0000-000000000001', 'reviewer1@training.vn',  'reviewer1',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Le Van Reviewer',    'REVIEWER', 'ACTIVE',   true, 'Academic'),
-  ('33333333-0000-0000-0000-000000000002', 'reviewer2@training.vn',  'reviewer2',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Pham Thi Reviewer',  'REVIEWER', 'ACTIVE',   true, 'Academic'),
-  ('33333333-0000-0000-0000-000000000003', 'reviewer3@training.vn',  'reviewer3',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Hoang Van Reviewer', 'REVIEWER', 'ACTIVE',   true, 'Academic'),
-  ('44444444-0000-0000-0000-000000000001', 'creator1@training.vn',   'creator1',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Do Thi Creator',     'CREATOR',  'ACTIVE',   true, 'Development'),
-  ('44444444-0000-0000-0000-000000000002', 'creator2@training.vn',   'creator2',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Vu Van Creator',     'CREATOR',  'ACTIVE',   true, 'Development'),
-  ('44444444-0000-0000-0000-000000000003', 'creator3@training.vn',   'creator3',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Bui Thi Creator',    'CREATOR',  'ACTIVE',   true, 'QA'),
-  ('44444444-0000-0000-0000-000000000004', 'creator4@training.vn',   'creator4',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Dang Van Creator',   'CREATOR',  'INACTIVE', true, 'QA');
+INSERT INTO users (id, email, username, password_hash, full_name, role, status, email_verified, department, phone, internal_notes) VALUES
+  ('11111111-0000-0000-0000-000000000001', 'admin@training.vn',      'admin',      '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'System Admin',       'ADMIN',    'ACTIVE',   true, 'IT', '0901234567', 'System administrator account'),
+  ('22222222-0000-0000-0000-000000000001', 'approver1@training.vn',  'approver1',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Nguyen Van Approver','APPROVER', 'ACTIVE',   true, 'Management', '0912345678', ''),
+  ('22222222-0000-0000-0000-000000000002', 'approver2@training.vn',  'approver2',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Tran Thi Approver',  'APPROVER', 'ACTIVE',   true, 'Management', '0923456789', ''),
+  ('33333333-0000-0000-0000-000000000001', 'reviewer1@training.vn',  'reviewer1',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Le Van Reviewer',    'REVIEWER', 'ACTIVE',   true, 'Academic', '0934567890', ''),
+  ('33333333-0000-0000-0000-000000000002', 'reviewer2@training.vn',  'reviewer2',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Pham Thi Reviewer',  'REVIEWER', 'ACTIVE',   true, 'Academic', '0945678901', ''),
+  ('33333333-0000-0000-0000-000000000003', 'reviewer3@training.vn',  'reviewer3',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Hoang Van Reviewer', 'REVIEWER', 'ACTIVE',   true, 'Academic', '0956789012', ''),
+  ('44444444-0000-0000-0000-000000000001', 'creator1@training.vn',   'creator1',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Do Thi Creator',     'CREATOR',  'ACTIVE',   true, 'Development', '0967890123', 'Top performer'),
+  ('44444444-0000-0000-0000-000000000002', 'creator2@training.vn',   'creator2',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Vu Van Creator',     'CREATOR',  'ACTIVE',   true, 'Development', '0978901234', ''),
+  ('44444444-0000-0000-0000-000000000003', 'creator3@training.vn',   'creator3',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Bui Thi Creator',    'CREATOR',  'ACTIVE',   true, 'QA', '0989012345', ''),
+  ('44444444-0000-0000-0000-000000000004', 'creator4@training.vn',   'creator4',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeJfHCNxMoTDOyq7EXUWmGbfW', 'Dang Van Creator',   'CREATOR',  'INACTIVE', true, 'QA', '0990123456', 'Currently on leave');
 
 -- Classrooms (use status enum instead of is_active)
 INSERT INTO classes (id, name, location, capacity, description, equipment, status) VALUES
@@ -47,6 +47,8 @@ INSERT INTO system_config (key, value, description) VALUES
   ('booking_advance_days',          '30',                  'Max days ahead a booking can be made'),
   ('booking_min_notice_hours',      '2',                   'Min hours notice required before slot starts'),
   ('max_bookings_per_week_creator', '5',                   'Max active bookings a creator can have per week'),
+  ('require_email_verification',    'true',                'Require email confirmation before account activation'),
+  ('allow_self_registration',       'true',                'Allow users to register themselves'),
   ('maintenance_mode',              'false',               'System maintenance flag'),
   ('app_name',                      'Class Booking System','Application display name'),
   ('timezone',                      'Asia/Ho_Chi_Minh',   'System timezone');
