@@ -46,9 +46,10 @@ interface User {
   internal_notes?: string;
 }
 
-interface UserDetail extends User {
-  bookings: any[];
-  login_history: any[];
+interface UserDetail {
+  profile: User;
+  bookings: { id: string, class_name: string, date: string, slot_name: string, status: string }[];
+  login_history: Record<string, unknown>[];
 }
 
 export default function AdminUsersPage() {
@@ -99,7 +100,7 @@ export default function AdminUsersPage() {
     try {
       const data = await fetchApi('/api/admin/users');
       setUsers(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Không thể tải danh sách người dùng'));
     } finally {
       setLoading(false);
@@ -146,7 +147,7 @@ export default function AdminUsersPage() {
       const data = await fetchApi(`/api/admin/users/${user.id}`);
       setUserDetail(data);
       setIsDetailOpen(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Không thể lấy thông tin chi tiết'));
     }
   };
@@ -169,7 +170,7 @@ export default function AdminUsersPage() {
       }
       setIsModalOpen(false);
       loadUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, isNewUserModal ? 'Tạo mới thất bại' : 'Cập nhật thất bại'));
     }
   };
@@ -187,7 +188,7 @@ export default function AdminUsersPage() {
       });
       toast.success(`Người dùng đã được ${newStatus === 'ACTIVE' ? 'kích hoạt' : 'vô hiệu'}`);
       loadUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Thao tác thất bại'));
     }
   };
@@ -197,7 +198,7 @@ export default function AdminUsersPage() {
       await fetchApi(`/api/admin/users/${user.id}/unlock`, { method: 'POST' });
       toast.success('Tài khoản đã được mở khóa ✅');
       loadUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Mở khóa thất bại'));
     }
   };
@@ -215,7 +216,7 @@ export default function AdminUsersPage() {
       });
       toast.success('Người dùng đã được xóa khỏi hệ thống');
       loadUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Xóa thất bại'));
     }
   };
@@ -818,7 +819,7 @@ export default function AdminUsersPage() {
                        
                        {userDetail.bookings.length > 0 ? (
                          <div className="space-y-3">
-                            {userDetail.bookings.map((b: any) => (
+                            {userDetail.bookings.map((b) => (
                                <div key={b.id} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-2xl hover:border-primary/20 transition-all shadow-sm">
                                   <div className="flex items-center gap-4">
                                      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500">
