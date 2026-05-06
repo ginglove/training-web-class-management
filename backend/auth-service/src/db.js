@@ -2,8 +2,17 @@ const { Pool } = require('pg');
 
 let pool;
 
-const config = process.env.DATABASE_URL 
-  ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
+let dbUrl = process.env.DATABASE_URL;
+if (dbUrl) {
+  if (dbUrl.includes('sslmode=require')) {
+    dbUrl = dbUrl.replace('sslmode=require', 'sslmode=verify-full');
+  } else if (!dbUrl.includes('sslmode=')) {
+    dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'sslmode=verify-full';
+  }
+}
+
+const config = dbUrl 
+  ? { connectionString: dbUrl, ssl: { rejectUnauthorized: false } }
   : {
       host:     process.env.DB_HOST     || 'localhost',
       port:     parseInt(process.env.DB_PORT || '5432'),

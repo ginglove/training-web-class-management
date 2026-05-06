@@ -2,27 +2,35 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/auth/(.*)",
+      "source": "/api/auth(?<path>/.*)?",
       "destination": "/backend/auth-service/src/index.js"
     },
     {
-      "source": "/api/bookings/(.*)",
+      "source": "/api/bookings(?<path>/.*)?",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/rooms/(.*)",
+      "source": "/api/rooms(?<path>/.*)?",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/admin/(.*)",
+      "source": "/api/admin(?<path>/.*)?",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/calendar/(.*)",
+      "source": "/api/calendar(?<path>/.*)?",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/notifications/(.*)",
+      "source": "/api/reviewer(?<path>/.*)?",
+      "destination": "/backend/booking-service/src/index.js"
+    },
+    {
+      "source": "/api/approver(?<path>/.*)?",
+      "destination": "/backend/booking-service/src/index.js"
+    },
+    {
+      "source": "/api/notifications(?<path>/.*)?",
       "destination": "/backend/notification-service/src/index.js"
     },
     {

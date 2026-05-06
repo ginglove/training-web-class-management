@@ -4,8 +4,17 @@ let pool;
 
 if (process.env.DATABASE_URL) {
   // Use Neon / Vercel DATABASE_URL connection string with SSL
+  let connectionString = process.env.DATABASE_URL;
+  
+  // Suppress SSL warning by explicitly setting mode if it's the standard one
+  if (connectionString.includes('sslmode=require')) {
+    connectionString = connectionString.replace('sslmode=require', 'sslmode=verify-full');
+  } else if (!connectionString.includes('sslmode=')) {
+    connectionString += (connectionString.includes('?') ? '&' : '?') + 'sslmode=verify-full';
+  }
+
   pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString,
     ssl: { rejectUnauthorized: false },
     max: 10,
   });
