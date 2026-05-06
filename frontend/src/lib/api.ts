@@ -68,3 +68,15 @@ export async function fetchApi(endpoint: string, options: FetchApiOptions = {}) 
 
   return data;
 }
+
+/**
+ * Utility to extract readable message from API errors
+ */
+export function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) {
+    // If the error object has a 'message' property from the API response
+    const apiError = err as Error & { message?: string; error?: string };
+    return apiError.message || apiError.error || err.message;
+  }
+  return fallback;
+}

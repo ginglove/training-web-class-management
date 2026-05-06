@@ -37,23 +37,37 @@ async function register(req, res, next) {
     if (password.length < 8)
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
+    // Check if registration is allowed
+    const { rows: configRows } = await pool.query(`SELECT value FROM system_config WHERE key = 'allow_self_registration'`);
+    const allowSelfReg = configRows.length > 0 ? configRows[0].value === 'true' : true;
+    if (!allowSelfReg) {
+      return res.status(403).json({ error: 'ERR_REGISTRATION_DISABLED', message: 'Registration is currently disabled by Admin' });
+    }
+
     const exists = await pool.query('SELECT id FROM users WHERE email = $1 OR username = $2', [email, username]);
     if (exists.rows.length > 0)
       return res.status(409).json({ error: 'Email or Username already registered' });
 
     const hash = await bcrypt.hash(password, 12);
 
-    // SRS 2.1.4: New users are INACTIVE by default, role is CREATOR
+    // Check email verification setting
+    const { rows: verifyRows } = await pool.query(`SELECT value FROM system_config WHERE key = 'require_email_verification'`);
+    const requireVerify = verifyRows.length > 0 ? verifyRows[0].value === 'true' : true;
+
+    // If verification is NOT required, set status to ACTIVE immediately
+    const initialStatus = requireVerify ? 'INACTIVE' : 'ACTIVE';
+    const emailVerified = !requireVerify;
+
     const { rows } = await pool.query(
-      `INSERT INTO users (email, username, password_hash, full_name, role, status, department, must_change_password)
-       VALUES ($1, $2, $3, $4, 'CREATOR', 'INACTIVE', $5, FALSE) 
+      `INSERT INTO users (email, username, password_hash, full_name, role, status, email_verified, department, must_change_password)
+       VALUES ($1, $2, $3, $4, 'CREATOR', $5, $6, $7, FALSE) 
        RETURNING id, email, username, full_name, role, status`,
-      [email.toLowerCase(), username.toLowerCase(), hash, full_name, department]
+      [email.toLowerCase(), username.toLowerCase(), hash, full_name, initialStatus, emailVerified, department]
     );
 
     const user = rows[0];
     res.status(201).json({ 
-      message: 'Registration successful. Please wait for Admin activation.',
+      message: requireVerify ? 'Registration successful. Please wait for Admin activation.' : 'Registration successful. You can now login.',
       user 
     });
   } catch (err) { next(err); }

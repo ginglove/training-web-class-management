@@ -13,16 +13,88 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+interface Config {
+  booking_min_notice_hours: number;
+  max_bookings_per_week_creator: number;
+  booking_advance_days: number;
+  allow_self_registration: boolean;
+  require_email_verification: boolean;
+  maintenance_mode: boolean;
+  failed_login_lockout: boolean;
+  [key: string]: string | number | boolean;
+}
+
 export default function AdminConfigPage() {
   const [saving, setSaving] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [config, setConfig] = React.useState<Config>({
+    booking_min_notice_hours: 2,
+    max_bookings_per_week_creator: 5,
+    booking_advance_days: 30,
+    allow_self_registration: true,
+    require_email_verification: true,
+    maintenance_mode: false,
+    failed_login_lockout: true
+  });
 
-  const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      toast.success('Cấu hình hệ thống đã được cập nhật thành công ✅');
-    }, 1500);
+  React.useEffect(() => {
+    fetchConfig();
+  }, []);
+
+  const fetchConfig = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/admin/config', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConfig((prev) => ({ ...prev, ...data }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch config:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const res = await fetch('/api/admin/config', {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        body: JSON.stringify(config)
+      });
+      
+      if (res.ok) {
+        toast.success('Cấu hình hệ thống đã được cập nhật thành công ✅');
+      } else {
+        const err = await res.json();
+        toast.error(err.message || 'Lỗi cập nhật cấu hình');
+      }
+    } catch (err) {
+      console.error('Save error:', err);
+      toast.error('Lỗi kết nối máy chủ');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleSetting = (key: string) => {
+    setConfig((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-12 pb-24">
@@ -35,8 +107,8 @@ export default function AdminConfigPage() {
              </div>
              <div className="space-y-1">
                 <div className="flex items-center gap-2 text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">
-                  <Sparkles className="w-3 h-3" />
-                  <span>Tham số vận hành</span>
+                   <Sparkles className="w-3 h-3" />
+                   <span>Tham số vận hành</span>
                 </div>
                 <h1 className="text-4xl font-black tracking-tight text-slate-800">Cấu hình Hệ thống ⚙️</h1>
              </div>
@@ -61,16 +133,31 @@ export default function AdminConfigPage() {
           <div className="space-y-8 relative z-10">
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thời gian đặt trước tối thiểu (Giờ)</label>
-              <input type="number" defaultValue="2" className="w-full h-14 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none" />
-              <p className="text-[9px] text-slate-400 font-bold italic ml-1">Giảng viên phải đặt trước ít nhất 2 giờ trước khi ca học bắt đầu.</p>
+              <input 
+                type="number" 
+                value={config.booking_min_notice_hours} 
+                onChange={(e) => setConfig({ ...config, booking_min_notice_hours: parseInt(e.target.value) })}
+                className="w-full h-14 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none" 
+              />
+              <p className="text-[9px] text-slate-400 font-bold italic ml-1">Giảng viên phải đặt trước ít nhất {config.booking_min_notice_hours} giờ trước khi ca học bắt đầu.</p>
             </div>
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Định mức đặt phòng hàng tuần</label>
-              <input type="number" defaultValue="5" className="w-full h-14 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none" />
+              <input 
+                type="number" 
+                value={config.max_bookings_per_week_creator} 
+                onChange={(e) => setConfig({ ...config, max_bookings_per_week_creator: parseInt(e.target.value) })}
+                className="w-full h-14 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none" 
+              />
             </div>
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thời lượng tối đa mỗi booking (Giờ)</label>
-              <input type="number" defaultValue="8" className="w-full h-14 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Số ngày đặt trước tối đa</label>
+              <input 
+                type="number" 
+                value={config.booking_advance_days} 
+                onChange={(e) => setConfig({ ...config, booking_advance_days: parseInt(e.target.value) })}
+                className="w-full h-14 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none" 
+              />
             </div>
           </div>
         </Card>
@@ -89,18 +176,18 @@ export default function AdminConfigPage() {
 
           <div className="space-y-6 relative z-10">
             {[
-              { label: 'Tự động Đăng ký', desc: 'Cho phép người dùng tự tạo tài khoản', checked: true },
-              { label: 'Xác minh Email', desc: 'Yêu cầu xác nhận email khi đăng ký', checked: true },
-              { label: 'Khóa tài khoản tự động', desc: 'Khóa sau 5 lần đăng nhập thất bại', checked: true },
-              { label: 'Chế độ Bảo trì', desc: 'Tạm dừng tất cả các hoạt động đặt phòng', checked: false },
+              { id: 'allow_self_registration', label: 'Tự động Đăng ký', desc: 'Cho phép người dùng tự tạo tài khoản' },
+              { id: 'require_email_verification', label: 'Xác minh Email', desc: 'Yêu cầu xác nhận email khi đăng ký' },
+              { id: 'failed_login_lockout', label: 'Khóa tài khoản tự động', desc: 'Khóa sau 5 lần đăng nhập thất bại' },
+              { id: 'maintenance_mode', label: 'Chế độ Bảo trì', desc: 'Tạm dừng tất cả các hoạt động đặt phòng' },
             ].map((item, i) => (
               <div key={i} className="flex items-center justify-between p-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] hover:bg-white hover:border-primary/20 transition-all group/item">
                 <div className="space-y-1">
                   <p className="font-black text-slate-800 text-sm uppercase tracking-tight">{item.label}</p>
                   <p className="text-[10px] font-bold text-slate-400 italic uppercase">{item.desc}</p>
                 </div>
-                <div className="relative inline-flex items-center cursor-pointer">
-                   <input type="checkbox" defaultChecked={item.checked} className="sr-only peer" />
+                <div className="relative inline-flex items-center cursor-pointer" onClick={() => toggleSetting(item.id)}>
+                   <input type="checkbox" checked={config[item.id] as boolean} readOnly className="sr-only peer" />
                    <div className="w-14 h-8 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
                 </div>
               </div>
@@ -110,9 +197,12 @@ export default function AdminConfigPage() {
       </div>
 
       <div className="flex flex-col sm:flex-row justify-end items-center gap-6">
-        <button className="w-full sm:w-auto px-10 py-5 bg-white border-2 border-slate-100 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all active:scale-95">
+        <button 
+          onClick={fetchConfig}
+          className="w-full sm:w-auto px-10 py-5 bg-white border-2 border-slate-100 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all active:scale-95"
+        >
           <RefreshCcw className="w-5 h-5 inline-block mr-3" />
-          Khôi phục mặc định
+          Làm mới
         </button>
         <button 
           onClick={handleSave}
