@@ -2,35 +2,35 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/auth(?<path>/.*)?",
+      "source": "/api/auth/:path*",
       "destination": "/backend/auth-service/src/index.js"
     },
     {
-      "source": "/api/bookings(?<path>/.*)?",
+      "source": "/api/bookings/:path*",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/rooms(?<path>/.*)?",
+      "source": "/api/rooms/:path*",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/admin(?<path>/.*)?",
+      "source": "/api/admin/:path*",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/calendar(?<path>/.*)?",
+      "source": "/api/calendar/:path*",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/reviewer(?<path>/.*)?",
+      "source": "/api/reviewer/:path*",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/approver(?<path>/.*)?",
+      "source": "/api/approver/:path*",
       "destination": "/backend/booking-service/src/index.js"
     },
     {
-      "source": "/api/notifications(?<path>/.*)?",
+      "source": "/api/notifications/:path*",
       "destination": "/backend/notification-service/src/index.js"
     },
     {

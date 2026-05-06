@@ -15,7 +15,11 @@ app.use(express.json());
 let pool;
 if (process.env.DATABASE_URL) {
   pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: (process.env.DATABASE_URL?.includes('sslmode=require') 
+      ? process.env.DATABASE_URL.replace('sslmode=require', 'sslmode=verify-full')
+      : (process.env.DATABASE_URL?.includes('sslmode=') 
+          ? process.env.DATABASE_URL 
+          : process.env.DATABASE_URL + (process.env.DATABASE_URL?.includes('?') ? '&' : '?') + 'sslmode=verify-full')),
     ssl: { rejectUnauthorized: false },
     max: 10,
   });
