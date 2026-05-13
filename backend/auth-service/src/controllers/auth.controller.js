@@ -236,7 +236,7 @@ async function login(req, res, next) {
       return res.status(400).json({ error: 'email and password required' });
 
     const { rows } = await pool.query(
-      `SELECT id, email, username, password_hash, full_name, role, status, must_change_password, failed_login_count, locked_until 
+      `SELECT id, email, username, password_hash, full_name, role, status, must_change_password, failed_login_count, locked_until, email_verified
        FROM users WHERE email = $1 OR username = $1`,
       [email.toLowerCase()]
     );
