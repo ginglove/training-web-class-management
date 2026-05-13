@@ -24,6 +24,7 @@ CREATE TYPE booking_status AS ENUM (
   'DRAFT',
   'PENDING_REVIEW',
   'IN_REVIEW',
+  'FORWARDED',
   'PENDING_APPROVAL',
   'APPROVED',
   'REJECTED',
@@ -211,6 +212,8 @@ CREATE TABLE refresh_tokens (
 
 CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+
+
 
 -- -------------------------------------------------------------
 -- EMAIL VERIFICATION TOKENS

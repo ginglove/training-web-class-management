@@ -27,8 +27,8 @@ export default function ForgotPassword() {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !newPassword) {
-      setError('Vui lòng nhập đầy đủ email và mật khẩu mới.');
+    if (!email) {
+      setError('Vui lòng nhập địa chỉ email.');
       return;
     }
 
@@ -36,19 +36,14 @@ export default function ForgotPassword() {
     setError('');
 
     try {
-      // Intentional Vulnerability: This directly resets the password without an email token verification
-      // A great test case for the software testing training!
       await fetchApi('/api/auth/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ 
-          email, 
-          new_password: newPassword 
-        }),
+        body: JSON.stringify({ email }),
       });
 
       setSuccess(true);
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Đổi mật khẩu thất bại. Vui lòng thử lại.'));
+      setError(getErrorMessage(err, 'Yêu cầu thất bại. Vui lòng thử lại.'));
     } finally {
       setLoading(false);
     }
@@ -65,13 +60,16 @@ export default function ForgotPassword() {
           <div className="w-24 h-24 bg-emerald-500 rounded-[2.5rem] flex items-center justify-center text-white mx-auto shadow-2xl shadow-emerald-500/20">
             <CheckCircle2 className="w-12 h-12" />
           </div>
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black text-slate-800">Đặt lại thành công!</h2>
-            <p className="text-slate-500 font-medium">Mật khẩu của bạn đã được cập nhật. Hãy đăng nhập bằng mật khẩu mới.</p>
+          <div className="space-y-4">
+            <h2 className="text-3xl font-black text-slate-800 tracking-tight leading-none">Kiểm tra hộp thư!</h2>
+            <p className="text-slate-500 font-medium text-sm leading-relaxed">
+              Nếu email tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu. Link có hiệu lực trong 1 giờ.
+            </p>
+            <p className="text-xs text-slate-400">Kiểm tra thư mục Spam nếu không thấy email.</p>
           </div>
           <Button 
             onClick={() => router.push('/')} 
-            className="w-full py-6 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all"
+            className="w-full py-6 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-[1.5rem] hover:bg-slate-800 shadow-xl shadow-slate-900/20 transition-all"
           >
             Quay lại Đăng nhập
           </Button>
@@ -101,9 +99,9 @@ export default function ForgotPassword() {
             <div className="w-20 h-20 mx-auto bg-slate-900 rounded-[2rem] flex items-center justify-center text-amber-400 shadow-2xl shadow-slate-900/20 transform group-hover:rotate-12 transition-transform duration-500">
               <Key className="w-10 h-10" />
             </div>
-            <div className="space-y-2">
-              <h1 className="text-4xl font-black text-slate-800 tracking-tight leading-none">Khôi phục Quyền</h1>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Đặt lại mật khẩu truy cập hệ thống</p>
+            <div className="space-y-3">
+              <h1 className="text-4xl font-black text-slate-800 tracking-tight leading-none">Khôi phục mật khẩu</h1>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-relaxed">Nhập địa chỉ email đã đăng ký. Chúng tôi sẽ gửi link đặt lại.</p>
             </div>
           </div>
 
@@ -122,32 +120,18 @@ export default function ForgotPassword() {
               )}
             </AnimatePresence>
 
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2">
-                  <Mail className="w-3 h-3 text-amber-500" /> Địa chỉ Email
-                </label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="account@training.vn"
-                  className="rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 p-6 font-black focus:bg-white focus:shadow-xl focus:shadow-amber-500/5 transition-all text-sm outline-none"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2">
-                  <Lock className="w-3 h-3 text-amber-500" /> Mật khẩu mới
-                </label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Tối thiểu 8 ký tự"
-                  className="rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 p-6 font-black focus:bg-white focus:shadow-xl focus:shadow-amber-500/5 transition-all text-sm outline-none"
-                />
-              </div>
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2">
+                <Mail className="w-3 h-3 text-amber-500" /> Địa chỉ Email
+              </label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="account@training.vn"
+                autoFocus
+                className="rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 p-6 font-black focus:bg-white focus:shadow-xl focus:shadow-amber-500/5 transition-all text-sm outline-none"
+              />
             </div>
 
             <Button 

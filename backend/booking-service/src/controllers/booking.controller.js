@@ -39,6 +39,12 @@ async function list(req, res, next) {
     if (date_from) { where.push(`b.date >= $${i++}`);      params.push(date_from); }
     if (date_to)   { where.push(`b.date <= $${i++}`);      params.push(date_to); }
     if (booker)    { where.push(`bs.creator_name ILIKE $${i++}`); params.push(`%${booker}%`); }
+    if (req.query.search) {
+      const s = `%${req.query.search}%`;
+      where.push(`(bs.course_name ILIKE $${i} OR bs.purpose ILIKE $${i} OR bs.class_name ILIKE $${i})`);
+      params.push(s);
+      i++;
+    }
     if (class_id)  { where.push(`b.class_id = $${i++}`);   params.push(class_id); }
 
     const whereStr = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -104,7 +110,7 @@ async function getById(req, res, next) {
 async function create(req, res, next) {
   try {
     const creatorId = req.user.sub;
-    const { class_id, date, slot_id, purpose, attendee_count, course_name } = req.body;
+    const { class_id, date, slot_id, purpose, attendee_count, course_name, status = 'DRAFT' } = req.body;
 
     if (!class_id || !date || !slot_id || !purpose || !attendee_count)
       return res.status(400).json({ error: 'Missing required fields' });
@@ -148,9 +154,9 @@ async function create(req, res, next) {
 
       // 4. Create Booking
       const { rows: newBooking } = await client.query(
-        `INSERT INTO bookings (creator_id, class_id, date, slot_id, purpose, attendee_count, course_name, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT') RETURNING *`,
-        [creatorId, class_id, date, slot_id, purpose, attendee_count, course_name]
+        `INSERT INTO bookings (creator_id, class_id, date, slot_id, purpose, attendee_count, course_name, status, submitted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        [creatorId, class_id, date, slot_id, purpose, attendee_count, course_name, status, status === 'PENDING_REVIEW' ? new Date() : null]
       );
       const booking = newBooking[0];
       
@@ -158,15 +164,80 @@ async function create(req, res, next) {
         bookingId: booking.id, 
         actorId: creatorId, 
         fromStatus: null, 
-        toStatus: 'DRAFT', 
-        comment: 'Booking created' 
+        toStatus: status, 
+        comment: status === 'DRAFT' ? 'Booking created as draft' : 'Booking created and submitted' 
       });
 
       await client.query('COMMIT');
+
+      if (status === 'PENDING_REVIEW') {
+        const { rows: reviewers } = await pool.query(`SELECT id FROM users WHERE role = 'REVIEWER' AND status = 'ACTIVE'`);
+        for (const r of reviewers) {
+          await notify({ user_id: r.id, booking_id: booking.id, type: 'BOOKING_SUBMITTED', title: 'New Booking Awaiting Review', message: `Booking "${booking.purpose}" needs your review.` });
+        }
+      }
+
       res.status(201).json(booking);
     } catch (err) {
       await client.query('ROLLBACK');
       if (err.code === '23505') return res.status(409).json({ error: 'Room is already booked for this slot' });
+      throw err;
+    } finally { client.release(); }
+  } catch (err) { next(err); }
+}
+
+// PUT /bookings/:id — Update DRAFT booking
+async function update(req, res, next) {
+  try {
+    const userId = req.user.sub;
+    const { id } = req.params;
+    const { class_id, date, slot_id, purpose, attendee_count, course_name, status } = req.body;
+
+    const { rows: existing } = await pool.query(`SELECT * FROM bookings WHERE id = $1`, [id]);
+    if (!existing.length) return res.status(404).json({ error: 'Booking not found' });
+    
+    const b = existing[0];
+    if (b.creator_id !== userId && req.user.role !== 'ADMIN') 
+      return res.status(403).json({ error: 'Access denied' });
+    
+    if (b.status !== 'DRAFT' && b.status !== 'REJECTED')
+      return res.status(400).json({ error: 'Only DRAFT or REJECTED bookings can be edited' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const newStatus = status || b.status;
+      const submittedAt = (newStatus === 'PENDING_REVIEW' && b.status !== 'PENDING_REVIEW') ? new Date() : b.submitted_at;
+
+      const { rows: updated } = await client.query(
+        `UPDATE bookings 
+         SET class_id = $1, date = $2, slot_id = $3, purpose = $4, attendee_count = $5, course_name = $6, status = $7, submitted_at = $8, updated_at = NOW()
+         WHERE id = $9 RETURNING *`,
+        [class_id || b.class_id, date || b.date, slot_id || b.slot_id, purpose || b.purpose, attendee_count || b.attendee_count, course_name || b.course_name, newStatus, submittedAt, id]
+      );
+
+      if (newStatus !== b.status) {
+        await addLog(client, { 
+          bookingId: id, 
+          actorId: userId, 
+          fromStatus: b.status, 
+          toStatus: newStatus, 
+          comment: `Updated and set to ${newStatus}` 
+        });
+
+        if (newStatus === 'PENDING_REVIEW') {
+          const { rows: reviewers } = await pool.query(`SELECT id FROM users WHERE role = 'REVIEWER' AND status = 'ACTIVE'`);
+          for (const r of reviewers) {
+            await notify({ user_id: r.id, booking_id: id, type: 'BOOKING_SUBMITTED', title: 'New Booking Awaiting Review', message: `Booking "${purpose || b.purpose}" needs your review.` });
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+      res.json(updated[0]);
+    } catch (err) {
+      await client.query('ROLLBACK');
       throw err;
     } finally { client.release(); }
   } catch (err) { next(err); }
@@ -425,63 +496,77 @@ async function reviewerHistory(req, res, next) {
     res.json({ data: rows });
   } catch (err) { next(err); }
 }
-
 async function getStats(req, res, next) {
   try {
     const userId = req.user.sub;
     const role   = req.user.role;
 
-    let query = '';
-    let params = [];
-
     if (role === 'CREATOR') {
-      query = `
+      const { rows } = await pool.query(`
         SELECT
           COUNT(*) FILTER (WHERE status = 'DRAFT')            AS draft,
           COUNT(*) FILTER (WHERE status IN ('PENDING_REVIEW', 'IN_REVIEW', 'PENDING_APPROVAL')) AS processing,
           COUNT(*) FILTER (WHERE status = 'APPROVED')         AS approved,
+          COUNT(*) FILTER (WHERE status = 'REJECTED')         AS rejected,
           COUNT(*)                                            AS total
         FROM bookings
         WHERE creator_id = $1
-      `;
-      params = [userId];
-    } else if (role === 'REVIEWER') {
-      query = `
+      `, [userId]);
+      return res.json(rows[0] || {});
+    }
+
+    if (role === 'REVIEWER') {
+      const { rows: counts } = await pool.query(`
         SELECT
           COUNT(*) FILTER (WHERE status = 'PENDING_REVIEW')   AS pending,
           COUNT(*) FILTER (WHERE status = 'IN_REVIEW' AND reviewer_id = $1) AS in_review,
-          COUNT(*) FILTER (WHERE (status = 'PENDING_APPROVAL' OR status = 'REJECTED') AND reviewer_id = $1 AND updated_at >= CURRENT_DATE) AS processed_today,
-          COUNT(*)                                            AS total
+          COUNT(*) FILTER (
+            WHERE reviewer_id = $1 
+              AND status IN ('PENDING_APPROVAL', 'APPROVED', 'REJECTED')
+              AND updated_at >= CURRENT_DATE
+          ) AS processed_today,
+          ROUND(
+            AVG(EXTRACT(EPOCH FROM (updated_at - claimed_at)) / 60.0) FILTER (
+              WHERE reviewer_id = $1 AND claimed_at IS NOT NULL 
+                AND status IN ('PENDING_APPROVAL', 'APPROVED', 'REJECTED')
+            ), 0
+          ) AS avg_minutes
         FROM bookings
-      `;
-      params = [userId];
-    } else if (role === 'APPROVER') {
-      query = `
-        SELECT
-          COUNT(*) FILTER (WHERE status = 'PENDING_APPROVAL') AS pending,
-          COUNT(*) FILTER (WHERE status = 'APPROVED' AND approver_id = $1 AND approved_at >= CURRENT_DATE) AS approved_today,
-          COUNT(*) FILTER (WHERE status = 'REJECTED' AND approver_id = $1 AND updated_at >= CURRENT_DATE) AS rejected_today,
-          COUNT(*)                                            AS total
-        FROM bookings
-      `;
-      params = [userId];
-    } else if (role === 'ADMIN') {
-      query = `
-        SELECT
-          COUNT(*) FILTER (WHERE status = 'PENDING_REVIEW')   AS pending_review,
-          COUNT(*) FILTER (WHERE status = 'PENDING_APPROVAL') AS pending_approval,
-          COUNT(*) FILTER (WHERE status = 'APPROVED')         AS approved,
-          COUNT(*)                                            AS total
-        FROM bookings
-      `;
-      params = [];
+      `, [userId]);
+
+      return res.json({ counts: counts[0] || {} });
     }
 
-    if (!query) return res.json({});
+    if (role === 'APPROVER') {
+      const { rows } = await pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'PENDING_APPROVAL') AS pending,
+          COUNT(*) FILTER (WHERE status = 'APPROVED' AND approver_id = $1 AND updated_at >= CURRENT_DATE) AS approved_today,
+          COUNT(*) FILTER (WHERE status = 'REJECTED' AND approver_id = $1 AND updated_at >= CURRENT_DATE) AS rejected_today,
+          ROUND(
+            AVG(EXTRACT(EPOCH FROM (updated_at - submitted_at)) / 3600.0) FILTER (
+              WHERE approver_id = $1 AND status IN ('APPROVED', 'REJECTED')
+            ), 1
+          ) AS avg_hours
+        FROM bookings
+      `, [userId]);
+      return res.json(rows[0] || {});
+    }
 
-    const { rows } = await pool.query(query, params);
-    res.json(rows[0] || {});
+    if (role === 'ADMIN') {
+      const { rows } = await pool.query(`
+        SELECT
+          COUNT(*)                                            AS total,
+          COUNT(*) FILTER (WHERE status IN ('PENDING_REVIEW', 'IN_REVIEW', 'PENDING_APPROVAL')) AS processing,
+          COUNT(*) FILTER (WHERE status = 'APPROVED' AND updated_at >= CURRENT_DATE) AS approved_today,
+          COUNT(*) FILTER (WHERE status = 'REJECTED' AND updated_at >= CURRENT_DATE) AS rejected_today
+        FROM bookings
+      `);
+      return res.json(rows[0] || {});
+    }
+
+    res.status(403).json({ error: 'Unsupported role' });
   } catch (err) { next(err); }
 }
 
-module.exports = { list, getById, create, submit, claim, unclaim, forward, approve, reject, cancel, getStats, reviewerHistory };
+module.exports = { list, getById, create, update, submit, claim, unclaim, forward, approve, reject, cancel, getStats, reviewerHistory };

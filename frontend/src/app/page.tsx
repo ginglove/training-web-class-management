@@ -27,24 +27,34 @@ export default function Home() {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
+  const [capsLockActive, setCapsLockActive] = React.useState(false);
+  const [rememberMe, setRememberMe] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [generalError, setGeneralError] = React.useState('');
+  const [errorType, setErrorType] = React.useState<'error' | 'warning'>('error');
 
   const validate = () => {
     const errors: Record<string, string> = {};
     if (!email) errors.email = 'Vui lòng nhập địa chỉ email';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Email không đúng định dạng';
-    
     if (!password) errors.password = 'Vui lòng nhập mật khẩu';
     
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.getModifierState('CapsLock')) {
+      setCapsLockActive(true);
+    } else {
+      setCapsLockActive(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneralError('');
+    setErrorType('error');
     
     if (!validate()) return;
 
@@ -53,7 +63,7 @@ export default function Home() {
     try {
       const data = await fetchApi('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, remember_me: rememberMe }),
       });
 
       login(data.user, data.access_token, data.refresh_token);
@@ -63,8 +73,17 @@ export default function Home() {
       } else {
         router.push('/home');
       }
-    } catch (err: unknown) {
-      setGeneralError(getErrorMessage(err, 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'));
+    } catch (err: any) {
+      if (err.remaining_attempts !== undefined) {
+        setGeneralError(`Tên đăng nhập hoặc mật khẩu không đúng. Bạn còn ${err.remaining_attempts} lần thử.`);
+      } else if (err.error === 'Account is inactive' || err.error === 'Email chưa xác nhận') {
+        setErrorType('warning');
+        setGeneralError(err.message || 'Tài khoản chưa được kích hoạt. Liên hệ Admin.');
+      } else if (err.error === 'Account locked') {
+        setGeneralError(err.message || 'Tài khoản bị khóa. Vui lòng thử lại sau.');
+      } else {
+        setGeneralError(getErrorMessage(err, 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'));
+      }
     } finally {
       setLoading(false);
     }
@@ -84,7 +103,7 @@ export default function Home() {
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         className="relative z-10 w-full max-w-[480px]"
       >
-        <div className="bg-white rounded-[3.5rem] p-12 lg:p-16 border border-slate-200 shadow-2xl shadow-slate-200/50 space-y-12 relative overflow-hidden group">
+        <div className="bg-white rounded-[3.5rem] p-12 lg:p-16 border border-slate-200 shadow-2xl shadow-slate-200/50 space-y-8 relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-full h-2 bg-primary" />
           
           <div className="space-y-6 text-center">
@@ -97,14 +116,18 @@ export default function Home() {
             </div>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-8" noValidate>
+          <form onSubmit={handleLogin} className="space-y-6" noValidate>
             <AnimatePresence mode="wait">
               {generalError && (
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="bg-rose-50 border border-rose-100 text-rose-600 p-5 rounded-[1.5rem] text-xs font-black flex items-center gap-3 shadow-sm"
+                  className={`p-5 rounded-[1.5rem] text-xs font-black flex items-center gap-3 shadow-sm border ${
+                    errorType === 'warning' 
+                      ? 'bg-amber-50 border-amber-200 text-amber-700' 
+                      : 'bg-rose-50 border-rose-100 text-rose-600'
+                  }`}
                 >
                   <Lock className="w-4 h-4 shrink-0" />
                   {generalError}
@@ -112,13 +135,13 @@ export default function Home() {
               )}
             </AnimatePresence>
 
-            <div className="space-y-6">
-              <div className="space-y-3">
+            <div className="space-y-5">
+              <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2">
-                  <Mail className="w-3 h-3 text-primary" /> Địa chỉ Email
+                  <Mail className="w-3 h-3 text-primary" /> Địa chỉ Email / Tên đăng nhập
                 </label>
                 <Input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@training.vn"
@@ -127,7 +150,7 @@ export default function Home() {
                 />
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2">
                   <Lock className="w-3 h-3 text-primary" /> Mật khẩu truy cập
                 </label>
@@ -136,6 +159,7 @@ export default function Home() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyUp={handleKeyUp}
                     placeholder="••••••••"
                     error={fieldErrors.password}
                     className="rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 p-6 font-black focus:bg-white focus:shadow-xl focus:shadow-primary/5 transition-all text-sm outline-none w-full"
@@ -149,17 +173,32 @@ export default function Home() {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                <AnimatePresence>
+                  {capsLockActive && (
+                    <motion.p 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="text-[10px] font-bold text-amber-500 ml-4 flex items-center gap-1"
+                    >
+                      ⚠ CapsLock đang bật
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
             <div className="flex items-center justify-between px-2">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-colors ${rememberMe ? 'bg-primary border-primary text-white' : 'border-slate-300 bg-white'}`}>
+                  {rememberMe && <svg viewBox="0 0 14 14" fill="none" className="w-3 h-3"><path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-primary transition-colors">Ghi nhớ</span>
+              </label>
+              
               <Link href="/forgot-password" className="text-[10px] font-black text-slate-400 hover:text-primary uppercase tracking-widest transition-colors">
                 Quên mật khẩu?
               </Link>
-              <div className="flex items-center gap-2 text-[10px] font-black text-emerald-500 uppercase tracking-widest">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>SSL Secured</span>
-              </div>
             </div>
 
             <Button 

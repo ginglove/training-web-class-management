@@ -9,7 +9,8 @@ import {
   Clock,
   Sparkles,
   Command,
-  AlertTriangle
+  AlertTriangle,
+  Key
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -21,6 +22,8 @@ interface Config {
   require_email_verification: boolean;
   maintenance_mode: boolean;
   failed_login_lockout: boolean;
+  jwt_expires_in: string;
+  refresh_expires_days: number;
   [key: string]: string | number | boolean;
 }
 
@@ -34,7 +37,9 @@ export default function AdminConfigPage() {
     allow_self_registration: true,
     require_email_verification: true,
     maintenance_mode: false,
-    failed_login_lockout: true
+    failed_login_lockout: true,
+    jwt_expires_in: '15m',
+    refresh_expires_days: 7
   });
 
   React.useEffect(() => {
@@ -158,6 +163,44 @@ export default function AdminConfigPage() {
                 onChange={(e) => setConfig({ ...config, booking_advance_days: parseInt(e.target.value) })}
                 className="w-full h-14 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none" 
               />
+            </div>
+          </div>
+        </Card>
+
+        {/* Token Management Card */}
+        <Card className="p-10 lg:p-12 rounded-[3.5rem] bg-white border border-slate-100 shadow-2xl shadow-slate-200/30 space-y-10 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-12 opacity-[0.02] group-hover:scale-125 transition-transform">
+             <Key className="w-48 h-48" />
+          </div>
+
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center border border-rose-100">
+              <Key className="w-6 h-6" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Token & Phiên</h2>
+          </div>
+          
+          <div className="space-y-8 relative z-10">
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thời gian Access Token (JWT)</label>
+              <input 
+                type="text" 
+                value={config.jwt_expires_in} 
+                onChange={(e) => setConfig({ ...config, jwt_expires_in: e.target.value })}
+                placeholder="e.g. 15m, 1h, 24h"
+                className="w-full h-14 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none" 
+              />
+              <p className="text-[9px] text-slate-400 font-bold italic ml-1">Thời hạn của mã truy cập. Thay đổi có hiệu lực trong 30 giây.</p>
+            </div>
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thời gian Refresh Token (Ngày)</label>
+              <input 
+                type="number" 
+                value={config.refresh_expires_days} 
+                onChange={(e) => setConfig({ ...config, refresh_expires_days: parseInt(e.target.value) })}
+                className="w-full h-14 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-700 focus:bg-white focus:border-primary/30 transition-all outline-none" 
+              />
+              <p className="text-[9px] text-slate-400 font-bold italic ml-1">Thời gian duy trì trạng thái đăng nhập của người dùng.</p>
             </div>
           </div>
         </Card>

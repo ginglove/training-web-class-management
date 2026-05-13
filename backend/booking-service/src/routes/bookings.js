@@ -8,6 +8,7 @@ router.get('/stats',                  ctrl.getStats);
 router.get('/reviewer-history',       ctrl.reviewerHistory);
 router.post('/',                      ctrl.create);
 router.get('/:id',                    ctrl.getById);
+router.put('/:id',                     ctrl.update);
 router.patch('/:id/submit',           ctrl.submit);
 router.patch('/:id/claim',            ctrl.claim);
 router.patch('/:id/unclaim',          ctrl.unclaim);

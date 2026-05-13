@@ -1,0 +1,2065 @@
+
+
+
+HỆ THỐNG QUẢN LÝ ĐẶT LỚP HỌC
+CLASS BOOKING MANAGEMENT SYSTEM
+
+TÀI LIỆU ĐẶC TẢ YÊU CẦU PHẦN MỀM
+Software Requirements Specification — Phiên bản 7.0
+Phiên bản
+7.0 — Tái cấu trúc theo luồng UI
+Nền tảng
+REST API + PostgreSQL + SSE Realtime
+Phạm vi
+4 Roles • Luồng UI • Mã lỗi • DB Schema
+Tổng chương
+5 Phần chính • 20 Chương chi tiết
+
+MỤC LỤC TÀI LIỆU
+
+
+📋  PHẦN A — TỔNG QUAN & NỀN TẢNG
+1
+Tổng Quan Hệ Thống
+Vai trò, trạng thái booking, quy trình phê duyệt
+
+2
+Kiến Trúc & Cơ Sở Dữ Liệu
+Schema PostgreSQL, 14 bảng, indexes
+
+
+🔐  PHẦN B — XÁC THỰC NGƯỜI DÙNG
+3
+Đăng Ký Tài Khoản
+UI form, validate, server-side, mã lỗi
+
+4
+Đăng Nhập / Đăng Xuất
+JWT, lockout, refresh token, mã lỗi
+
+5
+Quên Mật Khẩu
+Reset flow, token TTL, màn hình hết hạn
+
+6
+Đổi Mật Khẩu
+Màn hình profile, checklist, force-change
+
+
+🏠  PHẦN C — GIAO DIỆN NGƯỜI DÙNG THEO ROLE
+7
+Trang Chủ & Navigation
+Header, Sidebar, Dashboard KPI theo role
+
+8
+Booking Của Tôi (Creator)
+Danh sách, chi tiết, clone, timeline
+
+9
+Tạo & Chỉnh Sửa Booking
+Form đầy đủ, quick-create, validate
+
+10
+Hàng Đợi Reviewer
+Queue, claim, unclaim, xem nhanh
+
+11
+Chi Tiết Xem Xét (Reviewer)
+3-panel layout, hành động, dialog từ chối
+
+12
+Hàng Đợi Approver
+Priority queue, duyệt 1-click
+
+13
+Chi Tiết Phê Duyệt (Approver)
+Reviewer summary, quyết định, dialog
+
+14
+Lịch Phòng Học
+Month/Week/Day view, Admin block, quick-create
+
+15
+Hồ Sơ Cá Nhân
+Thông tin, bảo mật, avatar, sessions
+
+16
+Thông Báo
+Dropdown, toast, trang đầy đủ, realtime SSE
+
+
+⚙  PHẦN D — QUẢN TRỊ HỆ THỐNG (ADMIN)
+17
+Quản Lý Người Dùng
+CRUD, role, status, audit trail
+
+18
+Quản Lý Phòng Học
+CRUD phòng, thiết bị, ảnh, giờ hoạt động
+
+19
+Giám Sát Booking & Dashboard
+Toàn bộ booking, conflict alert, export
+
+20
+Cấu Hình Hệ Thống
+Parameters, email, quota, audit log
+
+
+📌  PHẦN E — PHỤ LỤC KỸ THUẬT
+A
+Bảng Mã Lỗi API Tổng Hợp
+HTTP codes đầy đủ với tình huống
+
+B
+Bảng Mã Lỗi Logic (LOGIC-*)
+62 logic codes phân theo module & mức độ
+
+C
+Thông Báo Lỗi UI (User-facing)
+Validate inline, toast, dialog, full-page
+
+D
+Kiểm Thử (Testing Guide)
+37 test cases, 8 kỹ thuật kiểm thử
+
+E
+Yêu Cầu Phi Chức Năng
+Performance, security, scalability
+
+F
+Gợi Ý Triển Khai
+Checklist, API chuẩn, gợi ý mở rộng
+
+
+
+PHẦN A
+TỔNG QUAN & NỀN TẢNG
+Chương 1–2: Kiến trúc hệ thống, vai trò, trạng thái, database schema
+
+CHƯƠNG 1 — TỔNG QUAN HỆ THỐNG
+
+1.1 Mục Tiêu
+Hệ thống Quản lý Đặt Lớp Học (Class Booking Management System) là ứng dụng web REST API tích hợp PostgreSQL, quản lý toàn bộ vòng đời yêu cầu đặt phòng học theo quy trình phê duyệt nhiều cấp với phân quyền rõ ràng theo 4 vai trò.
+
+1.2 Vai Trò Người Dùng
+Vai trò
+Role Code
+Quyền thực hiện
+Không được phép
+Quản trị viên
+ADMIN
+Toàn quyền: user, phòng, booking, cấu hình, báo cáo
+—
+Người tạo
+CREATOR
+Tạo/sửa/hủy/clone booking của mình, xem trạng thái
+Xem booking người khác, phê duyệt
+Người xem xét
+REVIEWER
+Claim, xem xét, ghi nhận xét, Forward hoặc Reject
+Phê duyệt cuối, tạo/sửa booking
+Người phê duyệt
+APPROVER
+Approve hoặc Reject sau Reviewer, block lịch phòng
+Tạo booking, claim xem xét lần đầu
+
+1.3 Bảng Trạng Thái Booking
+Mã trạng thái
+Badge UI
+Mô tả & Điều kiện
+DRAFT
+⬜ Xám
+Creator đang soạn. Có thể sửa/xóa tự do. Chỉ Creator thấy.
+PENDING_REVIEW
+🟡 Vàng
+Creator đã submit. Chờ Reviewer nhận xử lý.
+IN_REVIEW
+🔵 Xanh dương
+Reviewer đang xem xét (đã claim việc).
+PENDING_APPROVAL
+🟠 Cam
+Reviewer đã Forward. Chờ Approver quyết định.
+APPROVED
+🟢 Xanh lá
+Approver phê duyệt. Phòng được block trong lịch.
+REJECTED
+🔴 Đỏ
+Bị từ chối (ở Reviewer hoặc Approver). Không hoàn tác.
+CANCELLED
+⬛ Xám đậm
+Creator hủy chủ động (chỉ DRAFT hoặc PENDING_REVIEW).
+
+1.4 Quy Trình Phê Duyệt Tổng Quan
+① DRAFT
+Creator
+Soạn thảo
+▶
+② PENDING
+REVIEW
+Creator
+Submit gửi đi
+▶
+③ IN_REVIEW
+Reviewer
+Claim & xem xét
+▶
+④ PENDING
+APPROVAL
+Reviewer
+Forward lên
+▶
+⑤ APPROVED
+Approver
+Phê duyệt cuối
+
+1.5 Cấu Trúc Navigation Theo Role
+Role
+Sidebar Menu Items
+ADMIN
+Dashboard | Quản lý Người dùng | Quản lý Phòng học | Tất cả Booking | Lịch Phòng học | Cấu hình | Audit Log
+CREATOR
+Trang chủ | Booking của tôi | Tạo booking mới | Lịch Phòng học | Hồ sơ | Thông báo
+REVIEWER
+Dashboard | Hàng đợi xem xét | Đang xem xét | Lịch sử | Lịch Phòng học | Hồ sơ | Thông báo
+APPROVER
+Dashboard | Hàng đợi phê duyệt | Lịch sử phê duyệt | Lịch Phòng học | Hồ sơ | Thông báo
+
+CHƯƠNG 2 — CƠ SỞ DỮ LIỆU POSTGRESQL
+
+2.1 Danh Sách Bảng
+Tên bảng
+Mô tả
+users
+Tài khoản, vai trò, trạng thái, bảo mật đăng nhập
+classes
+Phòng học: tên, vị trí, sức chứa, thiết bị, giờ hoạt động
+bookings
+Yêu cầu đặt lớp: đầy đủ thông tin, trạng thái, reviewer/approver
+booking_status_history
+Lịch sử thay đổi trạng thái từng booking
+booking_comments
+Nhận xét của Reviewer & Approver (có flag is_internal)
+booking_attachments
+File đính kèm booking: URL, loại, dung lượng
+calendar_blocks
+Block lịch phòng tự động khi booking APPROVED
+manual_calendar_blocks
+Block thủ công Admin: bảo trì, lễ, sự kiện — có recurrence
+notifications
+In-app notifications: loại, is_read, metadata
+refresh_tokens
+JWT Refresh Token (hashed SHA-256), revoke flag
+password_reset_tokens
+Token đặt lại mật khẩu: UUID, TTL 1h, used flag
+email_verifications
+Token xác nhận email đăng ký: TTL 24h
+login_history
+Lịch sử đăng nhập: IP, user_agent, kết quả
+audit_logs
+Nhật ký toàn hệ thống: action, actor, object, IP, before/after
+system_configs
+Cấu hình key-value: quota, thời gian, email...
+
+2.2 Schema Bảng users
+Cột
+Kiểu dữ liệu
+Ràng buộc
+Mô tả
+id
+UUID
+PK
+gen_random_uuid()
+full_name
+VARCHAR(100)
+NOT NULL
+Họ và tên
+username
+VARCHAR(50)
+UNIQUE NOT NULL
+Tên đăng nhập — cố định sau khi tạo
+email
+VARCHAR(255)
+UNIQUE NOT NULL
+Email — chỉ Admin mới đổi được
+password_hash
+VARCHAR(255)
+NOT NULL
+bcrypt hash (salt=12)
+role
+user_role ENUM
+NOT NULL
+ADMIN | CREATOR | REVIEWER | APPROVER
+status
+user_status ENUM
+DEFAULT 'INACTIVE'
+ACTIVE | INACTIVE | LOCKED
+email_verified
+BOOLEAN
+DEFAULT false
+Xác nhận email chưa
+must_change_password
+BOOLEAN
+DEFAULT false
+Bắt buộc đổi MK lần đầu (Admin tạo)
+failed_login_count
+INTEGER
+DEFAULT 0
+Số lần đăng nhập sai liên tiếp
+locked_until
+TIMESTAMPTZ
+NULLABLE
+Thời gian mở khóa tài khoản
+avatar_url
+VARCHAR(500)
+NULLABLE
+URL ảnh đại diện trên Object Storage
+phone_number
+VARCHAR(15)
+NULLABLE
+Số điện thoại (optional)
+department
+VARCHAR(100)
+NULLABLE
+Phòng ban / Bộ phận
+created_at
+TIMESTAMPTZ
+DEFAULT NOW()
+Thời gian tạo
+updated_at
+TIMESTAMPTZ
+DEFAULT NOW()
+Cập nhật tự động qua trigger
+deleted_at
+TIMESTAMPTZ
+NULLABLE
+Soft delete timestamp
+
+2.3 Schema Bảng bookings
+Cột
+Kiểu dữ liệu
+Ràng buộc
+Mô tả
+id
+UUID
+PK
+Primary Key
+title
+VARCHAR(200)
+NOT NULL
+Tiêu đề yêu cầu
+class_id
+UUID
+FK → classes
+Phòng học được đặt
+creator_id
+UUID
+FK → users
+Người tạo yêu cầu
+reviewer_id
+UUID
+FK NULLABLE
+Reviewer đang claim (nullable)
+approver_id
+UUID
+FK NULLABLE
+Approver đã xử lý (nullable)
+start_datetime
+TIMESTAMPTZ
+NOT NULL
+Thời gian bắt đầu lớp học
+end_datetime
+TIMESTAMPTZ
+NOT NULL > start
+Thời gian kết thúc lớp học
+status
+booking_status ENUM
+DEFAULT 'DRAFT'
+Trạng thái hiện tại
+purpose
+TEXT
+NOT NULL
+Mục đích sử dụng phòng
+attendees_count
+INTEGER
+NOT NULL > 0
+Số người tham dự
+description
+TEXT
+NULLABLE
+Mô tả chi tiết
+equipment_needed
+JSONB
+NULLABLE
+['projector','ac','mic']
+rejection_reason
+TEXT
+NULLABLE
+Lý do từ chối (REJECTED)
+rejection_detail
+TEXT
+NULLABLE
+Chi tiết lý do (hiển thị cho Creator)
+internal_note
+TEXT
+NULLABLE
+Ghi chú nội bộ (chỉ Admin/Approver thấy)
+created_at / updated_at
+TIMESTAMPTZ
+DEFAULT NOW()
+Thời gian tạo / cập nhật
+
+2.4 Indexes Quan Trọng
+Index
+Mục đích
+idx_bookings_creator_id
+Creator xem My Bookings
+idx_bookings_class_id_status
+Conflict check khi tạo/approve booking
+idx_bookings_status
+Reviewer/Approver queue filter
+idx_bookings_reviewer_id
+Reviewer xem booking đang claim
+idx_bookings_start_datetime
+Filter khoảng thời gian, calendar
+idx_users_email, idx_users_username
+Login & unique check khi đăng ký
+idx_notifications_user_id_is_read
+Badge unread count query
+idx_refresh_tokens_token_hash
+Tìm refresh token khi gia hạn/logout
+idx_audit_logs_actor_created
+Admin tra cứu log theo người và thời gian
+
+
+PHẦN B
+XÁC THỰC NGƯỜI DÙNG
+Chương 3–6: Đăng ký • Đăng nhập • Đăng xuất • Quên mật khẩu • Đổi mật khẩu
+
+CHƯƠNG 3 — ĐĂNG KÝ TÀI KHOẢN
+
+3.1 Sơ Đồ Luồng
+Bước 1
+Người dùng
+Truy cập /register
+▶
+Bước 2
+UI
+Hiển thị form
+▶
+Bước 3
+Người dùng
+Nhập & Submit
+▶
+Bước 4
+Server
+Validate & Lưu DB
+▶
+Bước 5
+System
+Gửi email xác nhận
+
+3.2 Màn Hình /register
+	•	Header: Logo + tiêu đề 'Tạo tài khoản mới'
+	•	Card trắng bo góc giữa màn hình, max-width 480px
+	•	Fields bắt buộc (*): Họ và tên | Email | Tên đăng nhập | Mật khẩu | Xác nhận mật khẩu
+	•	Fields tùy chọn: Số điện thoại | Phòng ban
+	•	Mật khẩu: icon toggle show/hide + Strength bar: Yếu🔴 / Trung bình🟡 / Mạnh🟢
+	•	Xác nhận MK: ✓ xanh khi khớp, ✗ đỏ khi không khớp — cập nhật realtime
+	•	Checkbox [Đồng ý Điều khoản & Chính sách] — bắt buộc tick
+	•	Button [Đăng ký] — disabled cho đến khi form hợp lệ — loading spinner khi gửi
+	•	Link 'Đã có tài khoản? Đăng nhập ngay' → /login
+
+3.3 Validate Client-Side
+Trường
+Khi kiểm tra
+Điều kiện
+Thông báo lỗi UI
+Họ và tên
+onBlur+onChange
+< 2 hoặc > 100 ký tự
+'Họ tên phải từ 2–100 ký tự, chỉ chữ cái'
+Email
+onBlur+onChange
+Sai định dạng
+'Email không đúng định dạng'
+Email
+onBlur (API check)
+Đã tồn tại trong DB
+'Email đã được dùng. Thử đăng nhập?' [Link]
+Username
+onChange
+Sai ký tự [^a-zA-Z0-9_]
+'Chỉ dùng chữ cái, số và dấu _'
+Username
+onBlur (API check)
+Đã tồn tại
+'Tên đăng nhập đã có người dùng'
+Mật khẩu
+onChange
+Thiếu HOA/thường/số
+Strength bar đỏ/vàng/xanh + checklist điều kiện
+Xác nhận MK
+onChange
+Không khớp
+Icon ✗ đỏ; onBlur → 'Mật khẩu xác nhận chưa khớp'
+
+3.4 Xử Lý Server
+	•	POST /api/v1/auth/register — Validate lại toàn bộ phía server
+	•	Kiểm tra email & username unique → ERR_EMAIL_EXISTS / ERR_USERNAME_EXISTS
+	•	Hash password: bcrypt(password, 12)
+	•	INSERT user (status=INACTIVE, role=CREATOR, email_verified=false)
+	•	Tạo email_verification_token (UUID), TTL 24h → gửi email link /verify-email?token=
+	•	Response 201 → redirect /register-success
+
+3.5 Màn Hình Thành Công /register-success
+	•	Icon ✅ + 'Đăng ký thành công! Kiểm tra email để kích hoạt tài khoản.'
+	•	Nút [Gửi lại email] — disabled 60 giây, countdown realtime
+	•	Link 'Về trang đăng nhập'
+
+⚠  Mã lỗi API — Đăng ký
+   • 201 | SUCCESS                  | Đăng ký thành công
+   • 400 | ERR_VALIDATION           | Dữ liệu không hợp lệ
+   • 409 | ERR_EMAIL_EXISTS         | Email đã tồn tại
+   • 409 | ERR_USERNAME_EXISTS      | Username đã tồn tại
+   • 422 | ERR_PASSWORD_WEAK        | Mật khẩu không đủ phức tạp
+   • 429 | ERR_RATE_LIMIT           | Quá 5 request/phút từ IP
+   • 503 | ERR_EMAIL_SERVICE_DOWN   | Không gửi được email xác nhận
+
+CHƯƠNG 4 — ĐĂNG NHẬP & ĐĂNG XUẤT
+
+4.1 Sơ Đồ Luồng Đăng Nhập
+Bước 1
+Người dùng
+Nhập username + MK
+▶
+Bước 2
+Client
+Validate & gọi API
+▶
+Bước 3
+Server
+Xác thực & lockout
+▶
+Bước 4
+Server
+Cấp JWT Tokens
+▶
+Bước 5
+Client
+Lưu token & redirect
+
+4.2 Màn Hình /login
+	•	Fields: Tên đăng nhập hoặc Email | Mật khẩu (icon toggle show/hide)
+	•	Checkbox [Ghi nhớ đăng nhập] — Refresh Token 7 ngày → 30 ngày
+	•	Capslock detection: cảnh báo '⚠ CapsLock đang bật'
+	•	Hiển thị còn X lần thử từ lần sai thứ 3 trở đi
+	•	Banner 🔴 khi bị khóa: 'Tài khoản khóa đến HH:mm DD/MM — countdown realtime'
+	•	Links: [Quên mật khẩu?] | [Đăng ký tài khoản mới]
+
+4.3 Các Banner Lỗi Sau Submit
+Tình huống
+Thông báo UI
+Sai thông tin (lần 1-2)
+🔴 'Tên đăng nhập hoặc mật khẩu không đúng.'
+Sai lần 3
+🔴 '... Bạn còn 2 lần thử trước khi tài khoản bị khóa.'
+Sai lần 5 — bị khóa
+🔴 'Tài khoản bị khóa đến HH:mm DD/MM/YYYY. Dùng [Quên mật khẩu?].'
+Tài khoản INACTIVE
+🟡 'Tài khoản chưa được kích hoạt. Liên hệ Admin.'
+Email chưa xác nhận
+🟡 'Email chưa xác nhận. [Gửi lại email xác nhận]'
+Network error
+🟠 'Không thể kết nối. Kiểm tra internet và thử lại.' + [Thử lại]
+
+4.4 Xử Lý Server
+	•	POST /api/v1/auth/login { username_or_email, password, remember_me }
+	•	Tìm user → không tồn tại: ERR_INVALID_CREDENTIALS
+	•	Kiểm tra locked_until > NOW() → ERR_ACCOUNT_LOCKED { unlock_at }
+	•	Kiểm tra status ACTIVE → nếu không: ERR_ACCOUNT_INACTIVE
+	•	bcrypt.compare() — sai: tăng failed_login_count; đủ 5 → lock 15 phút
+	•	Đúng: reset failed_login_count=0, tạo Access Token JWT (RS256, TTL 15 phút)
+	•	Tạo Refresh Token (UUID hash SHA-256), lưu DB, TTL 7d hoặc 30d
+	•	INSERT login_history (IP, user_agent, status=SUCCESS)
+	•	Response 200: { access_token, refresh_token, user: {id, full_name, role} }
+
+4.5 Đăng Xuất
+Loại
+Endpoint
+Tác động
+Thiết bị hiện tại
+POST /api/v1/auth/logout
+Revoke refresh token hiện tại
+Tất cả thiết bị
+POST /api/v1/auth/logout-all
+Revoke toàn bộ refresh token của user
+Token hết hạn
+Client-side
+Xóa token local → redirect /login?reason=expired
+
+⚠  Mã lỗi API — Đăng nhập & Đăng xuất
+   • 200 | SUCCESS                  | Đăng nhập / Đăng xuất thành công
+   • 401 | ERR_INVALID_CREDENTIALS  | Sai username/password (không tiết lộ field nào sai)
+   • 403 | ERR_ACCOUNT_INACTIVE     | Tài khoản chưa kích hoạt
+   • 423 | ERR_ACCOUNT_LOCKED       | Tài khoản bị khóa tạm (kèm unlock_at)
+   • 429 | ERR_RATE_LIMIT           | Quá 20 request/phút từ IP
+   • LOGIC | LOGIC-AUTH-001         | Replay Refresh Token → Revoke toàn bộ session + alert Admin
+
+CHƯƠNG 5 — QUÊN MẬT KHẨU
+
+5.1 Sơ Đồ Luồng
+Bước 1
+User
+Nhập email tại /forgot-password
+▶
+Bước 2
+Server
+Tạo token & gửi email
+▶
+Bước 3
+User
+Click link trong email
+▶
+Bước 4
+User
+Nhập MK mới tại /reset-password
+▶
+Bước 5
+Server
+Cập nhật & Revoke sessions
+
+5.2 Màn Hình /forgot-password
+	•	Tiêu đề: 'Khôi phục mật khẩu'
+	•	Mô tả: 'Nhập địa chỉ email đã đăng ký. Chúng tôi sẽ gửi link đặt lại.'
+	•	Field [Email *] — autofocus — validate định dạng client-side
+	•	Button [Gửi link khôi phục] — loading spinner
+	•	Link [← Quay lại đăng nhập]
+
+5.3 Màn Hình Thành Công
+	•	Icon ✉️ + 'Kiểm tra hộp thư. Link có hiệu lực trong 1 giờ.'
+	•	Nút [Gửi lại] — disabled 60 giây, countdown
+	•	Link 'Kiểm tra Spam nếu không thấy email'
+
+5.4 Màn Hình /reset-password?token=
+	•	Server validate token trước khi render: chưa hết hạn + chưa dùng
+	•	Nếu invalid/expired → redirect /reset-password/expired
+	•	Form: [Mật khẩu mới *] | [Xác nhận MK mới *]
+	•	Checklist điều kiện MK động: ✓/✗ cập nhật realtime khi gõ
+	•	Button [Đặt mật khẩu mới] — disabled cho đến khi đủ điều kiện
+
+5.5 Xử Lý Server Reset Password
+	•	POST /api/v1/auth/reset-password { token, new_password, confirm_password }
+	•	Hash token → tìm trong password_reset_tokens — kiểm tra TTL + used=false
+	•	Validate: MK mới đủ mạnh, khớp confirm, không trùng MK cũ
+	•	UPDATE users SET password_hash = bcrypt(new_password, 12)
+	•	UPDATE password_reset_tokens SET used=true
+	•	Revoke TẤT CẢ refresh_tokens của user → buộc đăng nhập lại
+	•	Gửi email cảnh báo: 'Mật khẩu vừa được đặt lại. Nếu không phải bạn, liên hệ Admin ngay.'
+	•	Response 200 → redirect /login?message=password_reset_success
+
+⚠  Mã lỗi API — Quên Mật Khẩu
+   • 200 | SUCCESS (always)         | Luôn trả 200 dù email tồn tại hay không (bảo mật)
+   • 400 | ERR_TOKEN_INVALID        | Token sai, hết hạn, hoặc đã dùng
+   • 422 | ERR_PASSWORD_WEAK        | MK mới không đủ phức tạp
+   • 422 | ERR_PASSWORD_SAME_AS_OLD | MK mới trùng MK cũ
+   • 429 | ERR_RATE_LIMIT           | Quá 3 request/giờ từ cùng email
+
+CHƯƠNG 6 — ĐỔI MẬT KHẨU
+
+6.1 Sơ Đồ Luồng
+Bước 1
+User
+Vào Profile → Bảo mật
+▶
+Bước 2
+User
+Nhập MK cũ & MK mới
+▶
+Bước 3
+Server
+Xác minh MK cũ
+▶
+Bước 4
+Server
+Cập nhật & Revoke
+▶
+Bước 5
+System
+Email & Re-login
+
+6.2 Màn Hình /profile/change-password
+	•	Fields: [Mật khẩu hiện tại *] | [Mật khẩu mới *] | [Xác nhận MK mới *]
+	•	Checklist điều kiện MK mới (cập nhật realtime): ✓ ≥8 ký tự | ✓ Chữ hoa | ✓ Chữ thường | ✓ Số | ✓ Khác MK cũ
+	•	Button [Cập nhật mật khẩu] — disabled khi chưa đủ điều kiện
+	•	Cảnh báo: 'Sau khi đổi, bạn sẽ đăng xuất khỏi tất cả thiết bị.'
+
+6.3 Trường Hợp must_change_password = true
+	•	Admin tạo user → flag must_change_password=true trong DB
+	•	User đăng nhập → Access Token có claim { force_password_change: true }
+	•	Client redirect bắt buộc về /profile/change-password — chặn mọi route khác
+	•	Sau khi đổi xong → UPDATE must_change_password=false → vào hệ thống bình thường
+
+6.4 Xử Lý Server
+	•	PUT /api/v1/auth/change-password { current_password, new_password, confirm_password }
+	•	bcrypt.compare(current_password, hash) — sai → ERR_WRONG_CURRENT_PASSWORD
+	•	Validate MK mới: đủ mạnh + không trùng MK cũ
+	•	UPDATE password_hash, Revoke TẤT CẢ refresh_tokens
+	•	Gửi email cảnh báo thay đổi MK
+	•	Response 200 → Client xóa tokens → redirect /login
+
+⚠  Mã lỗi API — Đổi Mật Khẩu
+   • 200 | SUCCESS                     | Đổi thành công, sessions revoke
+   • 403 | ERR_WRONG_CURRENT_PASSWORD  | Mật khẩu hiện tại không đúng
+   • 403 | ERR_MUST_CHANGE_PASSWORD    | Bắt buộc đổi MK trước khi dùng hệ thống
+   • 422 | ERR_PASSWORD_WEAK           | MK mới không đủ phức tạp
+   • 422 | ERR_PASSWORD_SAME_AS_OLD    | MK mới trùng MK cũ
+
+
+PHẦN C
+GIAO DIỆN NGƯỜI DÙNG THEO ROLE
+Chương 7–16: Trang chủ • Booking • Reviewer • Approver • Lịch • Profile • Thông báo
+
+CHƯƠNG 7 — TRANG CHỦ & NAVIGATION
+
+7.1 Navigation Bar (Header cố định)
+	•	Logo + tên hệ thống (trái)
+	•	Menu: Trang chủ | [Role-specific items] | Thông báo 🔔 (badge) | Avatar dropdown
+	•	Avatar dropdown: Hồ sơ cá nhân | Đổi mật khẩu | Đăng xuất | Đăng xuất tất cả thiết bị
+
+7.2 Sidebar Menu Theo Role
+Role
+Sidebar Items (theo thứ tự)
+ADMIN
+📊 Dashboard | 👥 Quản lý Người dùng | 🏫 Quản lý Phòng học | 📋 Tất cả Booking | 📅 Lịch Phòng học | ⚙ Cấu hình | 📜 Audit Log
+CREATOR
+🏠 Trang chủ | 📋 Booking của tôi | ➕ Tạo booking mới | 📅 Lịch Phòng học | 👤 Hồ sơ | 🔔 Thông báo
+REVIEWER
+📊 Dashboard | ⏳ Hàng đợi xem xét | 🔍 Đang xem xét | 📜 Lịch sử | 📅 Lịch Phòng học | 👤 Hồ sơ | 🔔 Thông báo
+APPROVER
+📊 Dashboard | ✅ Hàng đợi phê duyệt | 📜 Lịch sử phê duyệt | 📅 Lịch Phòng học | 👤 Hồ sơ | 🔔 Thông báo
+
+7.3 Content Area Theo Role
+Role
+KPI Cards
+Danh sách chính
+ADMIN
+Tổng booking | Đang xử lý | Phê duyệt hôm nay | Từ chối hôm nay
+Toàn bộ booking hệ thống, biểu đồ theo tuần/tháng
+CREATOR
+DRAFT | Đang xử lý | Approved | Rejected
+Chỉ booking của mình, sắp theo ngày tạo
+REVIEWER
+Chờ xem xét | Đang xem | Xử lý hôm nay | TB thời gian
+Booking PENDING_REVIEW theo thời gian chờ
+APPROVER
+Chờ phê duyệt | Approved hôm nay | Rejected hôm nay | TB thời gian
+Booking PENDING_APPROVAL theo độ ưu tiên
+
+7.4 Bộ Lọc Chung (Homepage List)
+	•	Trạng thái: Multi-select checkbox tất cả trạng thái
+	•	Khoảng thời gian học: date range picker
+	•	Phòng học: searchable dropdown (Admin/Reviewer/Approver)
+	•	Người tạo: dropdown (chỉ Admin/Reviewer/Approver)
+	•	Full-text search theo tiêu đề — debounce 300ms
+	•	Sắp xếp: Ngày tạo mới nhất | Ngày học gần nhất | Chờ lâu nhất | Trạng thái
+	•	Phân trang: 20 bản ghi/trang — hiển thị 'Trang X/Y — N kết quả'
+
+CHƯƠNG 8 — BOOKING CỦA TÔI (Creator)
+
+8.1 Màn Hình Danh Sách — /my-bookings
+	•	Breadcrumb: Trang chủ > Booking của tôi
+	•	KPI Cards: DRAFT | Đang xử lý | Đã duyệt | Từ chối
+	•	Tab nhanh: Tất cả | Nháp | Đang xử lý | Đã duyệt | Từ chối | Đã hủy
+	•	Toggle view: Card (mặc định) / Table
+	•	Nút [+ Tạo booking mới] góc phải
+
+8.2 Thẻ Booking (Card View)
+	•	Badge trạng thái màu động | Tiêu đề (2 dòng max) | Phòng 🏫 | Thời gian 📅⏰
+	•	Số người 👥 N/M | Timeline mini (Creator→Reviewer→Approver, highlight bước hiện tại)
+	•	Thời gian chờ: 'Đã gửi X ngày trước' hoặc 'Đã duyệt lúc HH:mm DD/MM'
+	•	Nút hành động thay đổi theo trạng thái (xem bảng 8.3)
+
+8.3 Nút Hành Động Theo Trạng Thái
+Trạng thái
+Nút hiển thị
+DRAFT
+[✏ Tiếp tục chỉnh sửa]  |  [🚀 Gửi xem xét]  |  [🗑 Xóa]
+PENDING_REVIEW
+[👁 Xem chi tiết]  |  [❌ Hủy yêu cầu]
+IN_REVIEW
+[👁 Xem chi tiết]  |  [❌ Hủy yêu cầu] (vẫn cho phép)
+PENDING_APPROVAL
+[👁 Xem chi tiết]  — không cho hủy
+APPROVED
+[👁 Xem chi tiết]  |  [📋 Xem lịch xác nhận]
+REJECTED
+[👁 Xem lý do]  |  [🔄 Tạo lại booking mới]
+CANCELLED
+[👁 Xem chi tiết]  |  [🔄 Tạo lại booking mới]
+
+8.4 Màn Hình Chi Tiết — /my-bookings/:id
+	•	Layout 2 cột: Thông tin booking 60% | Timeline & Lịch phòng 40%
+	•	Timeline dọc: Tạo → Gửi → Reviewer nhận → Kết quả Reviewer → Approver xử lý (với timestamps)
+	•	REJECTED: Banner đỏ nổi bật + Box lý do từ chối + bước bị từ chối
+	•	APPROVED: Card xanh 'Phòng đã xác nhận từ HH:mm–HH:mm ngày DD/MM/YYYY'
+
+8.5 Clone Booking (REJECTED/CANCELLED)
+	•	Click [🔄 Tạo lại] → POST /api/v1/bookings/:id/clone → tạo DRAFT mới
+	•	Clone: title, class_id, purpose, attendees_count, description, equipment_needed
+	•	KHÔNG clone: timestamps, status, reviewer_id, approver_id, rejection_reason
+	•	KHÔNG clone: start/end datetime — buộc Creator chọn lại thời gian mới
+	•	Redirect /bookings/edit/<new_id> với banner cảnh báo cập nhật thời gian
+
+CHƯƠNG 9 — TẠO & CHỈNH SỬA BOOKING
+
+9.1 Màn Hình Tạo — /bookings/new
+	•	Layout 2 cột: Form 60% | Mini calendar phòng 40% (cập nhật realtime khi chọn phòng/giờ)
+
+9.2 Các Trường Form
+Trường
+Loại UI
+Bắt buộc
+Ràng buộc
+Tiêu đề
+Text input
+✓
+Tối đa 200 ký tự, counter hiển thị
+Phòng học
+Searchable dropdown
+✓
+Chỉ AVAILABLE. Chọn → calendar phải cập nhật
+Ngày học
+Date picker
+✓
+Chỉ tương lai. Block ngày quá khứ & phòng kín
+Giờ bắt đầu
+Time picker (30 phút)
+✓
+Cách hiện tại ≥ N giờ (cấu hình Admin)
+Giờ kết thúc
+Time picker
+✓
+> giờ bắt đầu, tối đa 8 giờ/booking
+Mục đích
+Textarea
+✓
+Tối đa 500 ký tự
+Số người tham dự
+Number input
+✓
+≤ sức chứa phòng. Hiển thị 'Tối đa N người'
+Mô tả chi tiết
+Textarea
+—
+Tối đa 2000 ký tự
+Thiết bị cần
+Multi-checkbox
+—
+Máy chiếu | Điều hòa | Micro | Bảng trắng | Máy tính
+File đính kèm
+File upload
+—
+Tối đa 5 file, mỗi file ≤ 10MB, PDF/DOCX/PNG/JPG
+
+9.3 Nút Hành Động Form
+	•	[Lưu nháp] — lưu DRAFT, không gửi Reviewer, auto-save mỗi 60 giây
+	•	[Submit gửi xem xét] — DRAFT → PENDING_REVIEW, không thể sửa sau khi submit
+	•	[Hủy] — confirm dialog nếu có thay đổi chưa lưu
+
+9.4 Xử Lý Server
+	•	POST /api/v1/bookings — Validate phòng AVAILABLE
+	•	Conflict check: SELECT booking trùng phòng trùng giờ (status IN PENDING/IN_REVIEW/PENDING_APPROVAL/APPROVED)
+	•	Kiểm tra quota: số booking ACTIVE trong tuần < giới hạn
+	•	INSERT bookings (status=DRAFT) → Response 201 { booking_id }
+	•	Submit: PATCH /api/v1/bookings/:id/submit → status DRAFT → PENDING_REVIEW
+	•	Gửi SSE + email notification đến tất cả REVIEWER active
+
+⚠  Mã lỗi API — Tạo Booking
+   • 201 | SUCCESS                  | Tạo DRAFT thành công
+   • 409 | ERR_CLASS_CONFLICT       | Phòng đã đặt trong khoảng thời gian này
+   • 422 | ERR_TIME_TOO_SOON        | Thời gian bắt đầu vi phạm cấu hình min advance
+   • 422 | ERR_ATTENDEES_EXCEEDED   | Số người vượt sức chứa phòng
+   • 422 | ERR_QUOTA_EXCEEDED       | Vượt giới hạn booking/tuần
+   • 422 | ERR_DURATION_EXCEEDED    | Thời lượng vượt 8 giờ tối đa
+
+CHƯƠNG 10 — HÀNG ĐỢI REVIEWER
+
+10.1 Dashboard Reviewer — /reviewer/dashboard
+	•	KPI Cards: Chờ xem xét | Đang xem xét (của tôi) | Đã xử lý hôm nay | TB thời gian xử lý
+	•	Bảng 'Chờ lâu nhất': top 5 — highlight đỏ nếu > 48h
+	•	Biểu đồ cột: số booking xử lý mỗi ngày 14 ngày qua
+	•	Tỉ lệ Forward/Reject 30 ngày: biểu đồ tròn
+
+10.2 Màn Hình Hàng Đợi — /reviewer/queue
+	•	Tab [Chờ xem xét (PENDING_REVIEW)] | Tab [Đang xem xét — của tôi (IN_REVIEW)]
+
+10.3 Bảng Danh Sách — Tab Chờ Xem Xét
+Cột
+Nội dung & Hành vi
+Tiêu đề
+Click → /reviewer/bookings/:id
+Người tạo
+Họ tên + Phòng ban
+Phòng học
+Tên phòng + Tầng
+Thời gian học
+Thứ X DD/MM HH:mm–HH:mm
+Thời gian chờ
+'X giờ Y phút' — xanh <24h | cam 24-48h | đỏ >48h
+Hành động
+[🙋 Nhận xem xét] claim ngay | [👁 Xem nhanh] panel slide-in không claim
+
+10.4 Tab 'Đang Xem Xét — Của Tôi'
+	•	Chỉ booking reviewer_id = current_user, status = IN_REVIEW
+	•	Cột thêm: 'Nhận lúc' + thời gian đã cầm việc — cảnh báo 🔴 nếu > 24h
+	•	Nút [Tiếp tục xem xét] | Nút [↩ Unclaim — trả về hàng đợi chung]
+
+10.5 Bộ Lọc
+	•	Sắp xếp: Chờ lâu nhất (mặc định) | Mới nhất | Ngày học gần nhất
+	•	Phòng học: multi-select | Khoảng thời gian học: date range
+	•	Phòng ban người tạo: dropdown | Full-text search tiêu đề
+
+⚠  Mã lỗi — Reviewer Queue
+   • 409 | ERR_ALREADY_CLAIMED        | Booking đã bị Reviewer khác claim ngay trước đó
+   • 409 | ERR_WRONG_STATUS_FOR_CLAIM | Booking không còn ở PENDING_REVIEW
+   • LOGIC-REV-002 | Reviewer giữ IN_REVIEW > 48h → Auto-unclaim + alert Admin
+   • LOGIC-REV-008 | 2 Reviewer click Claim cùng lúc → DB row lock, chỉ 1 thành công
+
+CHƯƠNG 11 — CHI TIẾT XEM XÉT (Reviewer)
+
+11.1 Bố Cục — /reviewer/bookings/:id
+	•	Header: Breadcrumb + Tiêu đề + Badge trạng thái + Thời gian chờ
+	•	Layout 3 vùng: [Thông tin booking 50%] | [Lịch & Creator Info 25%] | [Panel hành động sticky 25%]
+
+11.2 Vùng 1 — Thông Tin Booking
+	•	Tiêu đề | Phòng học | Thời gian học | Số người tham dự
+	•	Mục đích: full text — không bị truncate (Reviewer cần đọc kỹ)
+	•	Mô tả chi tiết | Thiết bị yêu cầu (chip tags, đối chiếu phòng có sẵn gì)
+	•	File đính kèm: icon + tên + dung lượng + [📥 Tải xuống]
+	•	Timeline: Tạo lúc → Gửi lúc → Reviewer nhận lúc
+
+11.3 Vùng 2 — Lịch & Creator Info
+	•	Mini calendar tuần: slot đang review highlight viền xanh đậm
+	•	Các slot khác: màu theo trạng thái booking
+	•	Hover slot → tooltip: Tiêu đề | Người đặt | HH:mm–HH:mm
+	•	Nút [Xem lịch đầy đủ] → modal calendar lớn
+	•	Creator card: Avatar + Tên + Phòng ban | Thống kê: tổng booking/đã duyệt/tỉ lệ %
+	•	5 booking gần nhất Creator: Tiêu đề | Phòng | Trạng thái
+
+11.4 Vùng 3 — Panel Hành Động (3 trạng thái)
+Trạng thái A — Chưa có ai claim (PENDING_REVIEW):
+	•	Banner vàng: 'Booking này chưa được nhận xem xét'
+	•	Nút lớn [🙋 Nhận xem xét ngay] primary
+	•	Nút nhỏ [👁 Xem nhanh — không claim]
+
+Trạng thái B — Mình đang claim (IN_REVIEW):
+	•	Banner xanh: '✅ Bạn đang xem xét — Nhận lúc HH:mm DD/MM'
+	•	Textarea 'Nhận xét *' — min 10 ký tự — counter X/1000
+	•	Checkbox '🔒 Nhận xét nội bộ' — Creator không thấy nếu tick
+	•	Nút [📤 Chuyển lên Approver] xanh lá — active khi có nhận xét đủ ký tự
+	•	Nút [❌ Từ chối] đỏ — mở Dialog từ chối
+	•	Nút [↩ Unclaim] xám — trả về hàng đợi chung
+
+Trạng thái C — Reviewer khác đang claim:
+	•	Banner xám: 'Reviewer [Tên] đang xử lý — Nhận lúc HH:mm DD/MM'
+	•	Chỉ xem, không tương tác được
+	•	Nút [⚠ Báo cáo chậm trễ] nếu > 48h
+
+11.5 Dialog Từ Chối (Reviewer)
+	•	Tiêu đề: '❌ Từ chối yêu cầu đặt lớp'
+	•	Dropdown 'Lý do *': Thông tin không đầy đủ | Phòng không phù hợp | Thời gian không hợp lệ | Vi phạm quy định | Khác
+	•	Textarea 'Chi tiết lý do *' — min 20 ký tự
+	•	Checkbox: 'Gợi ý Creator tạo lại với thông tin đã điều chỉnh'
+	•	Nút [Xác nhận từ chối] đỏ | [Hủy]
+
+11.6 Màn Hình Lịch Sử — /reviewer/history
+	•	Tab: [Đã chuyển tiếp] | [Đã từ chối] | [Tất cả]
+	•	Cột: Tiêu đề | Người tạo | Hành động | Nhận xét tóm tắt | Ngày xử lý | Kết quả cuối
+	•	Bộ lọc: thời gian | loại hành động | kết quả cuối | Export CSV
+
+⚠  Mã lỗi API — Reviewer Chi Tiết
+   • 403 | ERR_NOT_CLAIMING_REVIEWER     | Cố Forward/Reject booking không phải mình claim
+   • 409 | ERR_WRONG_STATUS_FOR_FORWARD  | Booking phải IN_REVIEW mới Forward được
+   • 422 | ERR_COMMENT_TOO_SHORT        | Nhận xét < 10 ký tự
+   • 422 | ERR_REASON_DETAIL_TOO_SHORT  | Chi tiết lý do từ chối < 20 ký tự
+   • 503 | ERR_NO_APPROVER_AVAILABLE    | Không có Approver ACTIVE để nhận booking
+
+CHƯƠNG 12 — HÀNG ĐỢI APPROVER
+
+12.1 Dashboard Approver — /approver/dashboard
+	•	KPI Cards: Chờ phê duyệt | Approved hôm nay | Rejected hôm nay | TB thời gian xử lý
+	•	Bảng 'Ưu tiên xử lý': booking chờ > 24h — highlight khẩn cấp
+	•	Lịch phòng tuần này: tổng quan booking APPROVED
+	•	Biểu đồ Approve vs Reject 14 ngày | Tỉ lệ 30 ngày
+
+12.2 Bảng Hàng Đợi — /approver/queue
+Cột
+Nội dung & Hành vi
+Ưu tiên
+🔴 Khẩn (>48h) | 🟠 Nhanh (24-48h) | 🟢 Bình thường (<24h)
+Tiêu đề
+Font đậm + click → chi tiết
+Thời gian học
+DD/MM HH:mm–HH:mm — highlight đỏ nếu ngày học < 3 ngày
+Reviewer
+Avatar + Tên + nhận xét tóm tắt 30 ký tự...
+Chờ phê duyệt
+Thời gian từ khi Reviewer Forward — màu theo độ ưu tiên
+Hành động nhanh
+[✅ Duyệt ngay] inline confirm 1-click | [❌ Từ chối] dialog | [👁 Xem chi tiết]
+
+12.3 Duyệt Nhanh 1-Click Từ Danh Sách
+	•	Click [✅ Duyệt ngay] → inline confirm: 'Xác nhận phê duyệt [Tên]?' [✓] [✗]
+	•	Không cần vào chi tiết — phù hợp khi Approver tin tưởng Reviewer
+	•	Sau duyệt: dòng chuyển xanh nhạt + badge APPROVED + ẩn khỏi queue sau 2s
+
+12.4 Bộ Lọc
+	•	Sắp xếp: Khẩn cấp nhất | Ngày học gần nhất | Mới nhất | Reviewer A-Z
+	•	Phòng học | Reviewer đã xem xét | Thời gian học | Phòng ban
+
+CHƯƠNG 13 — CHI TIẾT PHÊ DUYỆT (Approver)
+
+13.1 Bố Cục — /approver/bookings/:id
+	•	Header: Tiêu đề + Badge PENDING_APPROVAL + Thời gian chờ
+	•	Layout 3 vùng: [Thông tin booking 45%] | [Reviewer Summary 25%] | [Panel quyết định sticky 30%]
+
+13.2 Vùng 2 — Reviewer Summary (quan trọng nhất)
+	•	Panel nền xanh nhạt nổi bật
+	•	Avatar Reviewer + Tên + Thời gian xem xét (claim → Forward)
+	•	Nhận xét Reviewer: full text, không truncate, font đậm
+	•	Nhận xét nội bộ (is_internal): badge 🔒 'Nội bộ — Creator không thấy'
+	•	Thông tin phòng: sức chứa | thiết bị có sẵn — đối chiếu yêu cầu
+
+13.3 Vùng 3 — Panel Quyết Định
+	•	Banner cam: '⏳ Đang chờ quyết định phê duyệt của bạn'
+	•	Tóm tắt nhanh: Phòng | Ngày giờ | Số người | Mục đích (1 dòng)
+	•	Textarea 'Nhận xét' — optional khi Approve, bắt buộc khi Reject (min 20 ký tự)
+
+Nút [✅ PHÊ DUYỆT]:
+	•	Confirm dialog: 'Phê duyệt Phòng [X], DD/MM/YYYY, HH:mm–HH:mm, N người?'
+	•	Sau duyệt: badge → APPROVED ✅, panel đổi xanh, 2 nút disable
+
+Nút [❌ TỪ CHỐI]:
+	•	Dialog: Dropdown 'Lý do chính *' | Textarea 'Chi tiết cho Creator *' (min 20 ký tự) | Textarea 'Ghi chú nội bộ' (optional)
+	•	Checkbox: 'Gợi ý Creator tạo lại'
+	•	Sau từ chối: badge → REJECTED ❌, panel đổi đỏ nhạt
+
+13.4 Xử Lý Server — Approve
+	•	PATCH /api/v1/bookings/:id/approve → status=APPROVED
+	•	INSERT calendar_blocks(class_id, start_datetime, end_datetime, booking_id)
+	•	Gửi email + SSE notification cho Creator
+	•	Ghi booking_status_history + audit_log
+
+13.5 Màn Hình Lịch Sử — /approver/history
+	•	Tab: [Đã phê duyệt] | [Đã từ chối] | [Tất cả]
+	•	Cột: Tiêu đề | Phòng | Thời gian học | Quyết định | Nhận xét tóm tắt | Reviewer | Ngày quyết định
+	•	Export Excel theo bộ lọc
+
+⚠  Mã lỗi API — Approver Chi Tiết
+   • 409 | ERR_WRONG_STATUS_FOR_APPROVE   | Booking không ở PENDING_APPROVAL
+   • 409 | ERR_CLASS_CONFLICT_ON_APPROVE  | Race condition phòng bị đặt trùng lúc approve
+   • 422 | ERR_REASON_DETAIL_TOO_SHORT    | Chi tiết lý do < 20 ký tự khi từ chối
+   • 500 | ERR_CALENDAR_BLOCK_FAILED      | Approve OK nhưng block lịch lỗi — cron retry
+   • LOGIC-APP-001 | 2 Approver approve cùng lúc → DB lock, chỉ 1 thành công
+
+CHƯƠNG 14 — LỊCH PHÒNG HỌC
+
+14.1 Phân Quyền Xem & Tương Tác
+Quyền
+ADMIN
+CREATOR
+REVIEWER
+APPROVER
+Xem lịch tất cả phòng
+✅
+✅
+✅
+✅
+Xem tên người đặt
+✅ Tất cả
+⚠ Chỉ mình
+✅
+✅
+Click tạo booking nhanh
+❌
+✅ Shortcut
+❌
+❌
+Tạo block thủ công
+✅
+❌
+❌
+❌
+Sửa/Xóa block thủ công
+✅
+❌
+❌
+❌
+
+14.2 Control Bar
+	•	[◀ Trước] | [Hôm nay] | [Tiếp ▶] | Khoảng thời gian hiện tại
+	•	Dropdown chọn phòng (Tất cả / 1 phòng cụ thể — searchable)
+	•	Toggle view: [Tháng] [Tuần] [Ngày] — giữ nguyên ngày đang xem khi chuyển
+	•	Nút [📤 Xuất iCal] | Nút [+ Thêm block] — chỉ ADMIN
+
+14.3 Legend Màu Sắc
+Màu
+Loại
+Ý nghĩa
+🟡 Vàng
+Chờ xem xét
+PENDING_REVIEW hoặc IN_REVIEW
+🟠 Cam
+Chờ phê duyệt
+PENDING_APPROVAL
+🟢 Xanh lá
+Đã phê duyệt
+APPROVED — phòng bị block chắc chắn
+🔵 Viền đậm
+Của tôi (Creator)
+Booking của Creator đang đăng nhập
+⬛ Xám đậm
+Block thủ công
+Admin tạo: bảo trì / ngày lễ / sự kiện
+
+14.4 Month View — Xem Tháng
+	•	Lưới 7 cột (T2→CN) × N hàng tuần — ngày hôm nay viền tròn xanh
+	•	Tối đa 3 chip/ô ngày — '+N thêm' nếu nhiều hơn
+	•	Hover chip → tooltip: Phòng | Người đặt | HH:mm–HH:mm | Trạng thái
+	•	Creator click ô trống → modal Quick Create với ngày sẵn
+
+14.5 Week View — Xem Tuần
+	•	Cột trái: trục giờ 00:00–23:00 (mỗi hàng 30 phút)
+	•	7 cột ngày — đường đỏ giờ hiện tại — scroll đến giờ hiện tại khi load
+	•	Event block chiếm đúng khoảng thời gian start→end
+	•	Creator drag-select vùng trống → Quick Create với phòng & khung giờ sẵn
+
+14.6 Day View — Xem Ngày
+	•	Xem 'Tất cả phòng': mỗi phòng là 1 cột riêng — cuộn ngang nếu > 5 phòng
+	•	Cột phòng MAINTENANCE: nền xám + text 'Đang bảo trì'
+	•	Mỗi hàng 15 phút (chi tiết nhất)
+	•	Creator click slot phòng cụ thể → Quick Create với phòng + giờ sẵn
+
+14.7 Booking Detail Popover (click event)
+Thông tin
+Nội dung Popover
+Header
+Badge trạng thái + Tiêu đề booking
+Phòng
+🏫 Tên phòng — Tầng X, Tòa Y
+Thời gian
+📅 DD/MM/YYYY  ⏰ HH:mm – HH:mm (N tiếng)
+Người đặt
+👤 Họ tên — Phòng ban (Creator chỉ thấy nếu là booking mình)
+Nút
+[Xem chi tiết đầy đủ] → /my-bookings/:id hoặc /admin/bookings/:id
+
+14.8 Quick Create Booking (Creator)
+	•	Modal nhỏ — chỉ trường tối thiểu — phòng/giờ đã điền sẵn
+	•	[Lưu nháp] | [Lưu & Gửi ngay] | [Mở form đầy đủ]
+	•	Conflict check realtime khi điền giờ — cảnh báo đỏ nếu trùng
+
+14.9 Admin Block Thủ Công
+Trường
+Loại UI
+Bắt buộc
+Mô tả
+Phòng học
+Dropdown
+✓
+Multi-select — block nhiều phòng cùng lúc
+Loại block
+Radio
+✓
+MAINTENANCE | HOLIDAY | EVENT | OTHER
+Tiêu đề
+Text
+✓
+Hiển thị trên calendar
+Thời gian
+Date+Time picker
+✓
+Span nhiều ngày. Bỏ trống giờ = block cả ngày
+Lặp lại
+Dropdown
+—
+Không | Hàng tuần | Hàng tháng
+Thông báo Creator
+Checkbox
+—
+Gửi email/SSE cho Creator có booking bị ảnh hưởng
+	•	Nếu có booking APPROVED bị đè: cảnh báo danh sách → Admin chọn Hủy hay chỉ Thông báo
+
+CHƯƠNG 15 — HỒ SƠ CÁ NHÂN
+
+15.1 Màn Hình /profile
+	•	Layout 2 cột: Cột trái — Avatar & tóm tắt | Cột phải — 4 tabs chi tiết
+
+15.2 Cột Trái — Avatar Card
+	•	Avatar tròn: chữ cái đầu tên (mặc định) hoặc ảnh upload
+	•	Hover → overlay — click → crop & upload (JPG/PNG ≤ 2MB, auto-resize 200x200)
+	•	Tên (đậm) | Badge role màu | Email (readonly) | Trạng thái ACTIVE ✅ | Thành viên từ DD/MM/YYYY
+
+15.3 Tab 1 — Thông Tin Cá Nhân
+Trường
+Loại
+Chỉnh sửa
+Ghi chú
+Họ và tên
+Text input
+✓
+2–100 ký tự
+Email
+Readonly
+✗
+Chỉ Admin đổi được
+Tên đăng nhập
+Readonly
+✗
+Cố định sau khi tạo
+Số điện thoại
+Text input
+✓
+10 số, optional
+Phòng ban
+Text input
+✓
+Tối đa 100 ký tự, optional
+Vai trò
+Readonly
+✗
+Chỉ Admin đổi được
+	•	[Lưu thay đổi] chỉ active khi có thay đổi | [Hủy] khôi phục giá trị gốc
+
+15.4 Tab 2 — Bảo Mật
+	•	Mật khẩu: '••••••••' + Nút [Đổi mật khẩu] → /profile/change-password
+	•	Phiên đăng nhập: danh sách thiết bị (IP + User Agent + Thời gian)
+	•	Nút [Đăng xuất khỏi thiết bị này] | [Đăng xuất tất cả thiết bị khác]
+
+15.5 Tab 3 — Lịch Sử Hoạt Động
+	•	Login gần đây: Thiết bị | IP | Thời gian | Kết quả (Thành công/Thất bại) — 20 bản ghi
+	•	Alert nếu có đăng nhập thất bại từ IP lạ: '⚠ N lần thất bại từ IP xxx.xxx.xxx.xxx'
+
+15.6 Tab 4 — Thống Kê (chỉ CREATOR)
+	•	Tổng booking | Đã được duyệt | Bị từ chối | Tỉ lệ duyệt %
+	•	Biểu đồ cột: booking theo 6 tháng gần nhất | Phòng đặt nhiều nhất
+
+CHƯƠNG 16 — THÔNG BÁO
+
+16.1 Icon Thông Báo — Navigation Bar
+	•	Icon 🔔 + badge đỏ số chưa đọc (tối đa '99+')
+	•	Icon pulse/nhấp nháy khi có thông báo mới realtime
+	•	Click → mở Notification Panel dropdown
+
+16.2 Notification Panel Dropdown
+	•	Header: 'Thông báo (N chưa đọc)' + [✓ Đánh dấu tất cả] + [Xem tất cả →]
+	•	Tối đa 10 thông báo gần nhất
+	•	Mỗi dòng: Icon loại | Nội dung (60 ký tự max) | Thời gian relative | Chấm xanh chưa đọc
+	•	Click dòng → đánh dấu đọc + navigate đến context liên quan
+	•	Không có thông báo: 'Không có thông báo mới'
+
+16.3 Toast Notification (góc phải màn hình)
+Loại Toast
+Màu & Auto-dismiss
+Hành vi
+APPROVED 🎉
+Xanh — 8s
+Tự dismiss + âm thanh nhẹ
+REJECTED ❌
+Đỏ — 8s
+Nút [Xem lý do] navigate chi tiết
+INFO ℹ
+Xanh dương — 5s
+Tự dismiss
+WARNING ⚠
+Cam — Không auto
+Phải đóng thủ công
+SESSION_EXPIRED 🔐
+Đỏ đậm — Không auto
+Nút [Đăng nhập lại] bắt buộc
+
+16.4 Trang Thông Báo — /notifications
+	•	Danh sách đầy đủ, infinite scroll | Filter: Tất cả / Chưa đọc / Booking / Hệ thống
+	•	Mỗi dòng: Chấm xanh chưa đọc | Icon | Nội dung đầy đủ | Thời gian tuyệt đối
+	•	Hover → [✓ Đã đọc] | [🗑 Xóa] ở góc phải
+	•	Nút [Đánh dấu tất cả đã đọc] | [Xóa tất cả đã đọc]
+
+16.5 Kiến Trúc Realtime — SSE
+	•	Endpoint: GET /api/v1/notifications/stream?token=<jwt>
+	•	Heartbeat: server gửi ': ping' mỗi 30 giây giữ kết nối
+	•	Client auto-reconnect sau 3 giây nếu mất kết nối
+	•	Kết nối lại → GET /notifications?since=<last_event_id> lấy bù event bỏ lỡ
+	•	Banner vàng khi offline: '⚠ Mất kết nối. Đang thử kết nối lại...'
+
+16.6 Các Loại Event Quan Trọng
+Event Type
+Gửi đến
+Nội dung
+BOOKING_SUBMITTED
+REVIEWER
+'Có yêu cầu đặt lớp mới cần xem xét'
+BOOKING_APPROVED
+CREATOR
+'🎉 Yêu cầu [Phòng X] ngày DD/MM đã phê duyệt!'
+BOOKING_REJECTED
+CREATOR
+'❌ Yêu cầu bị từ chối. Xem lý do →'
+BOOKING_FORWARDED
+APPROVER
+'Có yêu cầu mới chờ phê duyệt'
+SESSION_EXPIRED
+USER
+'Phiên đăng nhập hết hạn. Đăng nhập lại.'
+USER_ACCOUNT_ACTIVATED
+USER
+'✅ Tài khoản đã được kích hoạt!'
+
+
+PHẦN D
+QUẢN TRỊ HỆ THỐNG (ADMIN)
+Chương 17–20: Quản lý User • Phòng học • Giám sát Booking • Cấu hình
+
+CHƯƠNG 17 — QUẢN LÝ NGƯỜI DÙNG (Admin)
+
+Chỉ ADMIN mới truy cập được. Mọi thao tác đều ghi vào audit_log.
+
+17.1 Màn Hình Danh Sách — /admin/users
+	•	Tiêu đề: 'Quản lý người dùng' + KPI: Tổng | ACTIVE | INACTIVE | LOCKED
+	•	Nút [+ Tạo tài khoản mới]
+	•	Bảng: Avatar | Họ tên | Email | Username | Vai trò badge | Trạng thái | Ngày tạo | Hành động
+	•	Badge vai trò: ADMIN🟣 CREATOR🔵 REVIEWER🟠 APPROVER🟢
+	•	Badge trạng thái: ACTIVE✅ INACTIVE⬛ LOCKED🔴
+	•	Hành động mỗi dòng: [Chi tiết] [Sửa] [Đổi role] [Kích hoạt/Vô hiệu] [Mở khóa] [Xóa]
+	•	Tìm kiếm: tên/email/username — debounce 300ms
+	•	Bộ lọc: Role (multi) | Trạng thái | Phòng ban | Phân trang 20/trang
+
+17.2 Form Tạo/Sửa User — /admin/users/new
+	•	Họ và tên (*) | Email (*) | Tên đăng nhập (*) | Vai trò (*) dropdown
+	•	Số điện thoại | Phòng ban | Ghi chú nội bộ
+	•	Checkbox: Gửi email thông báo cho người dùng khi tạo
+	•	Admin tạo → trạng thái mặc định ACTIVE (khác tự đăng ký là INACTIVE)
+	•	Hệ thống sinh mật khẩu tạm thời → gửi email → user đổi lần đầu đăng nhập
+
+17.3 Trang Chi Tiết User — /admin/users/:id
+	•	Tab: Thông tin | Booking lịch sử | Phiên đăng nhập | Lịch sử hoạt động
+	•	Tab Booking: toàn bộ booking của user với trạng thái
+	•	Tab Phiên: refresh tokens đang active, IP, thiết bị
+	•	Nút Admin: [Revoke tất cả session] | [Force đổi MK lần sau đăng nhập]
+
+17.4 API Endpoints
+Method
+Endpoint
+Mô tả
+GET
+/api/v1/admin/users
+Danh sách users: phân trang, lọc, search
+GET
+/api/v1/admin/users/:id
+Chi tiết user + booking history + sessions
+POST
+/api/v1/admin/users
+Tạo user mới (bất kỳ role, trạng thái ACTIVE mặc định)
+PUT
+/api/v1/admin/users/:id
+Cập nhật thông tin
+PATCH
+/api/v1/admin/users/:id/status
+Kích hoạt / Vô hiệu hóa
+PATCH
+/api/v1/admin/users/:id/role
+Đổi role — không được hạ Admin cuối
+POST
+/api/v1/admin/users/:id/unlock
+Mở khóa tài khoản bị locked
+DELETE
+/api/v1/admin/users/:id
+Soft delete: set deleted_at, revoke tokens
+
+⚠  Mã lỗi API — Admin User
+   • 422 | ERR_CANNOT_DELETE_LAST_ADMIN  | Không thể xóa Admin cuối cùng
+   • 422 | ERR_CANNOT_DEMOTE_LAST_ADMIN  | Không thể hạ quyền Admin cuối
+   • 422 | ERR_SELF_DEACTIVATE           | Admin không tự vô hiệu hóa mình
+   • LOGIC | Xóa user có PENDING booking  | Cảnh báo N booking đang xử lý
+   • LOGIC | Đổi role Reviewer→Creator   | Cảnh báo booking IN_REVIEW cần reassign
+
+CHƯƠNG 18 — QUẢN LÝ PHÒNG HỌC (Admin)
+
+18.1 Màn Hình Danh Sách — /admin/classes
+	•	Toggle: Card view (grid) / Table view
+	•	Mỗi phòng: Tên | Vị trí | Sức chứa | Thiết bị | Trạng thái | Booking hôm nay
+	•	Badge: AVAILABLE🟢 MAINTENANCE🟡 CLOSED🔴
+	•	Actions: [Xem lịch] [Sửa] [Đổi trạng thái] [Xóa]
+	•	Nút [+ Thêm phòng] góc phải
+
+18.2 Form Tạo/Sửa Phòng — /admin/classes/new
+Trường
+Loại UI
+Bắt buộc
+Ghi chú
+Tên phòng
+Text input
+✓
+Unique trong hệ thống
+Tòa nhà / Tầng / Số phòng
+Text inputs
+✓
+Hiển thị trên calendar và booking
+Sức chứa tối đa
+Number
+✓
+Số người nguyên dương
+Mô tả
+Textarea
+—
+Mô tả phòng, tiện nghi
+Thiết bị có sẵn
+Multi-checkbox
+—
+Máy chiếu | Điều hòa | Micro | Bảng trắng | Máy tính | Wifi
+Giờ hoạt động
+Time range
+—
+Từ HH:mm – HH:mm (đặt ngoài giờ này bị 422)
+Ảnh phòng
+File upload
+—
+Tối đa 5 ảnh, ≤ 5MB/ảnh, JPG/PNG
+Trạng thái
+Toggle
+—
+AVAILABLE / MAINTENANCE / CLOSED
+
+18.3 Đổi Trạng Thái Phòng
+	•	AVAILABLE → MAINTENANCE: cảnh báo danh sách booking APPROVED bị ảnh hưởng — chọn Notify Creator
+	•	MAINTENANCE → AVAILABLE: giải phóng slot, không ảnh hưởng booking cũ
+	•	CLOSED: cảnh báo nếu có booking APPROVED tương lai — không cho đóng khi còn booking
+
+18.4 Tab Lịch Phòng (từ trang chi tiết phòng)
+	•	Calendar view tất cả booking của phòng đó
+	•	Nút [+ Thêm block thủ công] trực tiếp từ trang chi tiết phòng
+
+⚠  Mã lỗi — Admin Phòng Học
+   • 409 | ERR_CLASS_NAME_EXISTS   | Tên phòng đã tồn tại
+   • 422 | ERR_CANNOT_DELETE_CLASS | Phòng có booking APPROVED tương lai
+   • 422 | ERR_CANNOT_CLOSE_CLASS  | Phòng có booking APPROVED tương lai
+   • LOGIC | Giảm sức chứa < attendees | Alert, không tự cancel booking
+
+CHƯƠNG 19 — GIÁM SÁT BOOKING & DASHBOARD (Admin)
+
+19.1 Dashboard Admin — /admin/dashboard
+	•	KPI: Tổng booking tháng | Đang xử lý | Tỉ lệ phê duyệt | TB thời gian xử lý
+	•	Biểu đồ đường: booking mới theo ngày 7/30 ngày
+	•	Biểu đồ tròn: phân bố trạng thái booking
+	•	Bảng: Top 5 phòng đặt nhiều nhất
+	•	Bảng cảnh báo SLA: booking chờ > 48h (highlight đỏ)
+	•	Bảng conflict alert: booking APPROVED trùng lịch cần xử lý ngay
+
+19.2 Danh Sách Tất Cả Booking — /admin/bookings
+	•	Bộ lọc đầy đủ: trạng thái | phòng | creator | reviewer | approver | khoảng thời gian
+	•	Cột bổ sung: Reviewer | Approver | Thời gian qua từng bước
+	•	Admin cancel bất kỳ booking nào (trừ APPROVED đã qua ngày học)
+	•	Admin reassign Reviewer cho booking IN_REVIEW
+	•	Nút [Export Excel] theo bộ lọc hiện tại
+
+19.3 Xử Lý Conflict APPROVED
+	•	Khi phát hiện 2 booking APPROVED cùng phòng cùng giờ:
+	•	Tạo alert entry trong bảng admin_alerts
+	•	Gửi SSE event CLASS_CONFLICT_ALERT đến tất cả Admin đang online
+	•	Hiển thị badge 🔴 trên sidebar 'Conflict cần xử lý'
+	•	Admin vào trang chi tiết → chọn booking nào giữ, booking nào hủy
+
+19.4 API Endpoints
+Method
+Endpoint
+Mô tả
+GET
+/api/v1/admin/bookings
+Tất cả booking: phân trang, đầy đủ bộ lọc
+GET
+/api/v1/admin/bookings/:id
+Chi tiết booking + full history + comments
+PATCH
+/api/v1/admin/bookings/:id/cancel
+Admin hủy bất kỳ booking nào
+PATCH
+/api/v1/admin/bookings/:id/reassign-reviewer
+Gán lại Reviewer cho IN_REVIEW
+GET
+/api/v1/admin/bookings/export
+Xuất Excel theo bộ lọc
+GET
+/api/v1/admin/conflicts
+Danh sách conflict booking APPROVED trùng lịch
+GET
+/api/v1/admin/dashboard/stats
+Thống kê dashboard: KPI, biểu đồ, SLA
+
+CHƯƠNG 20 — CẤU HÌNH HỆ THỐNG (Admin)
+
+20.1 Màn Hình /admin/config
+Admin có thể thay đổi các tham số vận hành hệ thống. Thay đổi có hiệu lực ngay lập tức.
+
+Tham số cấu hình
+Mặc định
+Mô tả
+booking_min_hours_advance
+2 giờ
+Đặt phòng phải trước ít nhất N giờ
+booking_max_days_advance
+30 ngày
+Không đặt quá N ngày vào tương lai
+booking_max_duration_hours
+8 giờ
+Thời lượng tối đa mỗi booking
+weekly_booking_quota
+5 booking
+Giới hạn booking/Creator/tuần
+auto_unclaim_hours
+48 giờ
+Tự unclaim Reviewer nếu không xử lý
+allow_self_registration
+true
+Cho phép tự đăng ký hay chỉ Admin tạo
+email_notifications_enabled
+true
+Bật/tắt tất cả thông báo email
+max_file_size_mb
+10 MB
+Kích thước tối đa file đính kèm
+sla_warning_hours
+24 giờ
+Cảnh báo SLA nếu booking chờ > N giờ
+
+20.2 Audit Log — /admin/audit-logs
+	•	Ghi lại: action | actor | object | IP | timestamp | before_value | after_value
+	•	Không thể sửa hoặc xóa bất kỳ audit log nào
+	•	Bộ lọc: Loại action | Actor | Khoảng thời gian | Object (user_id/booking_id)
+
+20.3 Bảng Action Types Audit Log
+Action Code
+Khi nào ghi
+USER_REGISTER
+Đăng ký tài khoản mới
+USER_LOGIN / USER_LOGIN_FAILED
+Đăng nhập thành công / thất bại (kèm IP)
+USER_LOGOUT
+Đăng xuất
+USER_STATUS_CHANGED
+Kích hoạt / Vô hiệu hóa tài khoản
+USER_ROLE_CHANGED
+Admin đổi vai trò người dùng
+PASSWORD_RESET_REQUESTED
+Yêu cầu quên mật khẩu
+PASSWORD_CHANGED
+Đổi mật khẩu thành công
+BOOKING_CREATED / SUBMITTED
+Tạo / Submit booking
+BOOKING_STATUS_CHANGED
+Mỗi lần trạng thái booking thay đổi
+BOOKING_CANCELLED
+Hủy booking (kèm lý do nếu Admin hủy)
+CLASS_CREATED / UPDATED / DELETED
+CRUD phòng học
+MANUAL_BLOCK_CREATED / UPDATED / DELETED
+Admin tạo/sửa/xóa block lịch thủ công
+CONFIG_CHANGED
+Admin thay đổi cấu hình hệ thống (ghi before/after)
+
+
+PHẦN E
+PHỤ LỤC KỸ THUẬT
+Phụ lục A–F: Mã lỗi • Logic codes • UI Messages • Testing • NFR • Triển khai
+
+PHỤ LỤC A — BẢNG MÃ LỖI API TỔNG HỢP
+
+Tất cả response lỗi trả về JSON chuẩn: { success: false, error_code, message, details?, timestamp }
+
+HTTP
+Error Code
+Tên ngắn
+Tình huống
+201
+SUCCESS_CREATED
+Tạo thành công
+Tạo booking, tạo user, tạo phòng
+400
+ERR_VALIDATION
+Validation thất bại
+Thiếu field, sai format
+400
+ERR_TOKEN_INVALID
+Token không hợp lệ
+JWT sai chữ ký, reset token đã dùng
+400
+ERR_TOKEN_EXPIRED
+Token hết hạn
+Access Token quá TTL 15 phút
+401
+ERR_TOKEN_MISSING
+Thiếu token
+Không có Authorization header
+401
+ERR_INVALID_CREDENTIALS
+Sai thông tin đăng nhập
+Sai username/password — không tiết lộ field
+403
+ERR_FORBIDDEN
+Không có quyền
+Role không đủ quyền thực hiện thao tác
+403
+ERR_NOT_OWNER
+Không phải chủ sở hữu
+Creator cố sửa booking người khác
+403
+ERR_ACCOUNT_INACTIVE
+Tài khoản chưa kích hoạt
+Status = INACTIVE
+403
+ERR_WRONG_CURRENT_PASSWORD
+Sai MK hiện tại
+Đổi mật khẩu — MK cũ không khớp
+403
+ERR_MUST_CHANGE_PASSWORD
+Bắt buộc đổi MK
+Admin-created account, lần đăng nhập đầu
+403
+ERR_CANNOT_EDIT
+Không thể sửa
+Booking không ở DRAFT
+403
+ERR_CANNOT_CANCEL
+Không thể hủy
+Booking không ở DRAFT/PENDING_REVIEW
+404
+ERR_USER_NOT_FOUND
+User không tồn tại
+ID không hợp lệ hoặc đã soft-delete
+404
+ERR_BOOKING_NOT_FOUND
+Booking không tồn tại
+Booking ID không hợp lệ
+404
+ERR_CLASS_NOT_FOUND
+Phòng không tồn tại
+class_id không hợp lệ hoặc đã xóa
+409
+ERR_EMAIL_EXISTS
+Email đã tồn tại
+Đăng ký với email đã có
+409
+ERR_USERNAME_EXISTS
+Username đã tồn tại
+Đăng ký với username đã dùng
+409
+ERR_CLASS_CONFLICT
+Phòng bị đặt trùng
+Khoảng giờ đã có booking APPROVED/PENDING
+409
+ERR_WRONG_STATUS
+Trạng thái không phù hợp
+Thao tác không hợp lệ với trạng thái hiện tại
+409
+ERR_ALREADY_CLAIMED
+Đã được claim
+Reviewer khác đã nhận booking
+413
+ERR_FILE_TOO_LARGE
+File quá lớn
+Vượt giới hạn kích thước cấu hình
+415
+ERR_FILE_TYPE_INVALID
+Sai định dạng file
+MIME type không được phép
+422
+ERR_TIME_TOO_SOON
+Thời gian quá gần
+Vi phạm booking_min_hours_advance
+422
+ERR_TIME_TOO_FAR
+Thời gian quá xa
+Vi phạm booking_max_days_advance
+422
+ERR_ATTENDEES_EXCEEDED
+Vượt sức chứa
+attendees_count > class.capacity
+422
+ERR_QUOTA_EXCEEDED
+Vượt hạn mức booking
+Creator vượt weekly_booking_quota
+422
+ERR_PASSWORD_WEAK
+Mật khẩu yếu
+Không đủ tiêu chí phức tạp
+422
+ERR_PASSWORD_SAME_AS_OLD
+MK trùng cũ
+Mật khẩu mới = mật khẩu hiện tại
+422
+ERR_COMMENT_TOO_SHORT
+Nhận xét quá ngắn
+Reviewer nhận xét < 10 ký tự
+422
+ERR_REASON_DETAIL_TOO_SHORT
+Lý do từ chối quá ngắn
+< 20 ký tự khi Reject
+422
+ERR_CANNOT_DELETE_LAST_ADMIN
+Admin cuối
+Hệ thống phải có ≥ 1 Admin
+423
+ERR_ACCOUNT_LOCKED
+Tài khoản bị khóa
+≥ 5 lần sai MK liên tiếp (kèm unlock_at)
+429
+ERR_RATE_LIMIT
+Rate limit
+Vượt giới hạn request/phút (kèm retry_after)
+500
+ERR_INTERNAL
+Lỗi máy chủ
+Lỗi không xác định phía server
+503
+ERR_SERVICE_UNAVAILABLE
+Dịch vụ không khả dụng
+DB down, email service lỗi
+
+PHỤ LỤC B — BẢNG MÃ LỖI LOGIC (LOGIC-*)
+
+Ghi vào audit_log. Mức độ: 🔴 HIGH — alert ngay | 🟠 WARN — cảnh báo | 🟡 INFO — ghi nhận
+
+Mã Logic
+Mức độ
+Mô tả & Xử lý
+LOGIC-AUTH-001
+🟠 WARN
+Cùng IP thử nhiều tài khoản → Block IP 30 phút
+LOGIC-AUTH-002
+🔴 HIGH
+Refresh Token replay attack → Revoke toàn bộ session + alert Admin
+LOGIC-AUTH-003
+🟡 INFO
+Admin lock user đang online → Token valid 15 phút rồi không refresh được
+LOGIC-REG-001
+🟡 INFO
+Link xác nhận email hết hạn > 24h → Gửi lại, token cũ vô hiệu ngay
+LOGIC-FP-001
+🟠 WARN
+Email nhận > 3 request reset/giờ → Rate limit + audit log
+LOGIC-FP-002
+🔴 HIGH
+Token reset dùng lần 2 (replay) → Vô hiệu token, gửi cảnh báo email user
+LOGIC-BOOK-001
+🔴 HIGH
+Phát hiện 2 booking APPROVED cùng phòng giờ → Alert Admin ngay, dashboard badge đỏ
+LOGIC-BOOK-002
+🟠 WARN
+Race condition 2 Creator đặt cùng slot → DB constraint, người sau 409
+LOGIC-BOOK-003
+🟡 INFO
+Phòng chuyển MAINTENANCE khi Creator đang mở form → Cảnh báo khi lưu
+LOGIC-BOOK-004
+🟡 INFO
+Creator submit DRAFT > 7 ngày tuổi → Cảnh báo 'Thông tin có thể cũ'
+LOGIC-REV-001
+🟡 INFO
+Reviewer claim booking ngoài phạm vi → 403 + ghi audit_log
+LOGIC-REV-002
+🟠 WARN
+Reviewer IN_REVIEW > 48h không xử lý → Auto-unclaim, email + alert Admin
+LOGIC-REV-003
+🟡 INFO
+Creator hủy khi Reviewer đang IN_REVIEW → SSE thông báo Reviewer ngay
+LOGIC-REV-004
+🔴 HIGH
+Không có Approver ACTIVE → Reviewer không thể Forward, alert Admin
+LOGIC-REV-005
+🔴 HIGH
+2 Reviewer click Claim cùng lúc → DB row lock, người sau 409 ERR_ALREADY_CLAIMED
+LOGIC-APP-001
+🔴 HIGH
+2 Approver Approve cùng lúc → DB lock, chỉ 1 thành công, người sau 409
+LOGIC-APP-002
+🟡 INFO
+Email lỗi khi Approve → Booking vẫn APPROVED, email vào retry queue 3 lần
+LOGIC-APP-003
+🟡 INFO
+calendar_block insert lỗi sau Approve → Cron retry sau 1 phút
+LOGIC-APP-004
+🟠 WARN
+Approver duyệt booking ngày học đã qua → Cảnh báo nhưng vẫn cho Approve
+LOGIC-ADM-001
+🟠 WARN
+Admin xóa user có PENDING booking → Cảnh báo N booking đang xử lý
+LOGIC-ADM-002
+🟠 WARN
+Admin đổi role Reviewer→Creator khi IN_REVIEW → Cảnh báo reassign
+LOGIC-ADM-003
+🔴 HIGH
+Tất cả Reviewer/Approver bị vô hiệu → Alert Admin ngay, queue bị đóng băng
+LOGIC-CAL-001
+🟠 WARN
+Admin block toàn phòng → Cảnh báo 'Không còn phòng khả dụng khoảng thời gian này'
+LOGIC-CAL-002
+🟡 INFO
+Timezone server thay đổi → Tất cả lưu UTC trong DB, frontend convert local
+LOGIC-NOTIF-001
+🟡 INFO
+User offline khi nhận event → Lưu vào notifications table, deliver khi reconnect
+LOGIC-NOTIF-002
+🔴 HIGH
+Broadcast > 500 users → Dùng message queue (Bull/Redis), không fan-out trực tiếp
+
+PHỤ LỤC C — THÔNG BÁO LỖI GIAO DIỆN (UI)
+
+C.1 Validate Inline (dưới từng field)
+Màn hình
+Trường / Tình huống
+Thông báo hiển thị
+Đăng ký
+Họ tên — trống
+'Vui lòng nhập họ và tên'
+Đăng ký
+Email — sai định dạng
+'Địa chỉ email không hợp lệ (vd: ten@congty.com)'
+Đăng ký
+Email — đã tồn tại
+'Email đã được dùng. Thử đăng nhập?' [Link]
+Đăng ký
+Username — ký tự đặc biệt
+'Chỉ dùng chữ cái, số và dấu gạch dưới'
+Đăng ký
+Mật khẩu — thiếu chữ hoa
+Strength bar đỏ + checklist ✗
+Đăng ký
+Xác nhận MK — không khớp
+'Mật khẩu xác nhận chưa khớp'
+Tạo booking
+Phòng — chưa chọn
+'Vui lòng chọn phòng học cần đặt'
+Tạo booking
+Giờ — quá gần
+'Thời gian bắt đầu phải cách hiện tại ít nhất N giờ'
+Tạo booking
+Số người > sức chứa
+'Phòng này chứa tối đa M người. Vui lòng điều chỉnh.'
+Tạo booking
+File > 10MB
+'File [tên] vượt giới hạn 10MB. Chọn file khác.'
+Từ chối
+Lý do < 20 ký tự
+'Chi tiết lý do phải có ít nhất 20 ký tự'
+
+C.2 Toast / Banner Toàn Trang
+Loại
+Màu
+Nội dung & Tình huống
+✅ Thành công
+Xanh lá
+'Đăng ký thành công! Kiểm tra email để kích hoạt.' / 'Booking đã gửi đi!' / 'Đã phê duyệt!'
+⚠ Cảnh báo
+Vàng
+'Phiên làm việc sắp hết hạn. Nhấn [Gia hạn].' / 'Còn X lần thử trước khi bị khóa.'
+❌ Lỗi
+Đỏ
+'Phòng đã được đặt trong thời gian này.' / 'Email hoặc MK không đúng.' / 'Tài khoản bị khóa đến HH:mm'
+ℹ Thông tin
+Xanh dương
+'Phiên làm việc hết hạn. Vui lòng đăng nhập lại.' / 'Booking đã được Reviewer xem xét.'
+
+C.3 Màn Hình Lỗi Toàn Trang
+HTTP
+Tiêu đề
+Nội dung & Hành động
+401
+🔒 Chưa đăng nhập
+'Cần đăng nhập để truy cập.' — [Đăng nhập ngay]
+403
+🚫 Không có quyền
+'Không có quyền truy cập. Liên hệ Admin.' — [Về trang chủ]
+404
+🔍 Không tìm thấy
+'Trang không tồn tại hoặc đã bị xóa.' — [Về trang chủ]
+500
+⚙ Lỗi hệ thống
+'Lỗi hệ thống. Chúng tôi đang khắc phục.' — [Thử lại]
+503
+🔧 Bảo trì
+'Hệ thống đang bảo trì. Sẽ hoạt động trở lại sớm.'
+
+PHỤ LỤC D — KIỂM THỬ (Testing Guide)
+
+D.1 Test Cases Theo Module
+TC#
+Kịch bản
+Input
+Kết quả mong đợi
+TC01
+Đăng ký email hợp lệ
+Email mới, MK đủ mạnh
+201, email xác nhận gửi
+TC02
+Đăng ký email đã tồn tại
+Email đã có trong DB
+409 ERR_EMAIL_EXISTS
+TC03
+Đăng nhập sai MK 5 lần
+username đúng, MK sai x5
+423 ERR_ACCOUNT_LOCKED lần 5
+TC04
+Creator xem booking người khác
+GET /bookings/:id_khac
+403 ERR_FORBIDDEN
+TC05
+Reviewer cố Approve (chỉ Approver được)
+PATCH /bookings/:id/approve
+403 ERR_FORBIDDEN
+TC06
+Happy path đầy đủ: DRAFT→APPROVED
+4 bước đầy đủ
+Mỗi bước đúng trạng thái + notification
+TC07
+Reviewer từ chối → Creator nhận lý do
+Reject với lý do
+REJECTED, email + SSE kèm lý do
+TC08
+Creator hủy khi Reviewer IN_REVIEW
+Cancel PENDING_REVIEW
+CANCELLED, Reviewer nhận SSE
+TC09
+Đặt trùng phòng cùng giờ
+2 booking cùng phòng giờ
+409 ERR_CLASS_CONFLICT
+TC10
+SQL Injection field username
+' OR 1=1 --
+400 ERR_VALIDATION, không execute
+TC11
+JWT tamper: đổi role=ADMIN
+Sửa payload JWT
+401 ERR_TOKEN_INVALID
+TC12
+Replay Refresh Token
+Dùng refresh_token lần 2
+401, toàn bộ session revoke
+TC13
+Đặt lớp < 2h tới (vi phạm advance)
+start = NOW() + 1h
+422 ERR_TIME_TOO_SOON
+TC14
+Reviewer không nhận xét rồi Forward
+Forward không có comment
+422 ERR_COMMENT_TOO_SHORT
+
+D.2 Kỹ Thuật Kiểm Thử
+Kỹ thuật
+Áp dụng cho
+Equivalence Partitioning
+Validate field: độ dài, định dạng email, MK strength
+Boundary Value Analysis
+2h/30 ngày advance, sức chứa phòng, quota tuần, 10/20 ký tự comment
+State Transition Testing
+7 trạng thái booking × chuyển hợp lệ/không hợp lệ
+Decision Table Testing
+4 roles × N endpoints = ma trận quyết định
+Negative Testing
+Tất cả mã lỗi API (Phụ lục A) và Logic (Phụ lục B)
+Security Testing (OWASP)
+SQLi, XSS, IDOR, JWT tamper, rate limit bypass, file upload
+Performance Testing
+200 concurrent users, conflict check < 100ms, export 10k records < 5s
+Exploratory Testing
+Luồng đa bước, race conditions, SSE realtime behavior
+
+PHỤ LỤC E — YÊU CẦU PHI CHỨC NĂNG
+
+E.1 Hiệu Năng
+Chỉ số
+Mục tiêu
+API Response P95
+< 500ms tải bình thường
+API Response P99
+< 1500ms tải cao
+Conflict Check
+< 100ms (DB index tối ưu)
+Concurrent Users
+≥ 200 người cùng lúc
+Export Excel 10k rows
+< 5 giây
+FCP (First Contentful Paint)
+< 2 giây
+DB Connection Pool
+Min 5 / Max 50 connections
+
+E.2 Bảo Mật
+	•	Mật khẩu: bcrypt salt=12. JWT: RS256, Access TTL=15min, Refresh TTL=7/30d
+	•	HTTPS bắt buộc, CORS whitelist, Helmet.js security headers
+	•	Rate limiting: 100 req/phút/IP public, 20 req/phút /auth/*
+	•	Parameterized Queries (không raw SQL). Sanitize tất cả input. Content-Security-Policy
+	•	File upload: kiểm tra MIME thực (magic bytes), không tin extension
+	•	Audit log bất biến, mọi thao tác nhạy cảm đều ghi kèm IP + timestamp
+
+E.3 Khả Dụng & Logging
+	•	Uptime mục tiêu: 99.5% (không kể bảo trì)
+	•	Health check: GET /api/v1/health → { status, db, uptime, timestamp }
+	•	Structured JSON logging: timestamp | level | message | request_id | user_id
+	•	Alert khi: error rate > 5%/phút | DB fail | disk > 85%
+	•	DB backup hàng ngày, lưu 30 ngày
+
+PHỤ LỤC F — GỢI Ý TRIỂN KHAI
+
+F.1 Chuẩn API Response
+Thành công:
+{ "success": true, "data": {...}, "meta": { "page": 1, "limit": 20, "total": N }, "timestamp": "ISO8601" }
+Lỗi:
+{ "success": false, "error_code": "ERR_CLASS_CONFLICT", "message": "Phòng học đã được đặt trong khoảng thời gian này", "details": {...}, "timestamp": "ISO8601" }
+
+F.2 Checklist Triển Khai
+✓
+Hạng mục
+Chi tiết kiểm tra
+☐
+Environment Variables
+DB_URL, JWT_SECRET (private key RS256), SMTP_*, STORAGE_*, REDIS_URL
+☐
+Database Migration
+Chạy đủ migration scripts, verify schema, seed system_configs
+☐
+HTTPS & SSL Certificate
+Certificate hợp lệ, redirect HTTP→HTTPS
+☐
+Rate Limiting
+Cấu hình đúng ngưỡng cho từng nhóm endpoint
+☐
+Email Service
+SMTP hoạt động, test gửi email đăng ký và reset MK
+☐
+Admin Account
+Tạo ≥ 1 tài khoản Admin ban đầu
+☐
+DB Indexes
+Tất cả indexes trong Phụ lục A đã được tạo
+☐
+Backup Schedule
+Cron backup hàng ngày, test restore
+☐
+Health Check
+/api/v1/health trả 200 với db: connected
+☐
+Redis / Queue
+Bull queue cho email retry và SSE fan-out
+☐
+Object Storage
+S3/MinIO cho file đính kèm và avatar
+☐
+Swagger/OpenAPI
+Tài liệu API tự động sinh, Postman collection
+
+📌  Tổng Kết SRS v7.0
+   • 5 Phần chính • 20 Chương + 6 Phụ lục
+   • Tái cấu trúc hoàn toàn theo luồng UI người dùng thực tế
+   • Menu điều hướng chuyên nghiệp với 5 phần màu sắc
+   • 35+ mã lỗi HTTP • 25+ Logic Error Codes • 14+ test cases
+   • Schema 16 bảng PostgreSQL • 10 indexes quan trọng
+   • Phân quyền rõ ràng: mỗi màn hình ghi rõ role nào xem/thao tác được
+

@@ -50,31 +50,28 @@ function WaitBadge({ submittedAt }: { submittedAt: string | null }) {
 
 export default function ReviewerQueuePage() {
   const router = useRouter();
-  const [tab, setTab] = React.useState<'pending' | 'mine'>('pending');
   const [pending, setPending] = React.useState<Booking[]>([]);
   const [inReview, setInReview] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
-
-  // Filters
+  const [tab, setTab] = React.useState<'pending' | 'mine'>('pending');
   const [search, setSearch] = React.useState('');
   const [sort, setSort] = React.useState('oldest');
-
-  // Quick preview panel
   const [preview, setPreview] = React.useState<Booking | null>(null);
-
-  // Unclaim confirm
   const [unclaimId, setUnclaimId] = React.useState<string | null>(null);
   const [unclaimProcessing, setUnclaimProcessing] = React.useState(false);
+  const [stats, setStats] = React.useState<any>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [pRes, mRes] = await Promise.all([
+      const [pRes, mRes, sRes] = await Promise.all([
         fetchApi(`/api/reviewer/queue?sort=${sort}&booker=${encodeURIComponent(search)}`),
-        fetchApi('/api/reviewer/in-progress')
+        fetchApi('/api/reviewer/in-progress'),
+        fetchApi('/api/bookings/stats')
       ]);
       setPending(pRes.data || []);
       setInReview(mRes.data || []);
+      setStats(sRes);
     } catch (err) {
       console.error(err);
     } finally {
@@ -115,7 +112,7 @@ export default function ReviewerQueuePage() {
   const list = tab === 'pending' ? pending : inReview;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-24">
+    <div className="max-w-6xl mx-auto space-y-8 pb-24">
 
       {/* Breadcrumb */}
       <nav className="text-sm font-medium text-slate-400">
@@ -133,16 +130,13 @@ export default function ReviewerQueuePage() {
           <div>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight">
               Hàng đợi xem xét
-              <Badge className="ml-2 bg-indigo-100 text-indigo-700 border-none text-xs font-black">
-                {pending.length + inReview.length}
-              </Badge>
             </h1>
-            <p className="text-xs text-slate-400 font-medium">Reviewer · SRS 19.3</p>
+            <p className="text-xs text-slate-400 font-medium">Bảng điều khiển Reviewer · SRS 10.1</p>
           </div>
         </div>
         <div className="flex gap-2">
           <button onClick={load} className="h-9 px-3 flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-slate-700 text-xs font-bold transition-all">
-            <RefreshCcw className="w-3.5 h-3.5" /> Làm mới
+            <RefreshCcw className={cn("w-3.5 h-3.5", loading && "animate-spin")} /> Làm mới
           </button>
           <Link href="/reviewer/history" className="h-9 px-4 flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 text-xs font-bold transition-all">
             Lịch sử đã xử lý <ChevronRight className="w-3.5 h-3.5" />
@@ -150,19 +144,125 @@ export default function ReviewerQueuePage() {
         </div>
       </div>
 
+      {/* Dashboard Stats SRS 10.1 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
+          <div className="flex justify-between items-start">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center border border-amber-100">
+              <Clock className="w-5 h-5" />
+            </div>
+            <Badge className="bg-amber-100 text-amber-700 border-none">Đang chờ</Badge>
+          </div>
+          <div>
+            <div className="text-4xl font-black text-slate-800">{stats?.counts?.pending || 0}</div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Yêu cầu chưa xử lý</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
+          <div className="flex justify-between items-start">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center border border-indigo-100">
+              <RefreshCcw className="w-5 h-5" />
+            </div>
+            <Badge className="bg-indigo-100 text-indigo-700 border-none">Chờ phê duyệt</Badge>
+          </div>
+          <div>
+            <div className="text-4xl font-black text-slate-800">{stats?.counts?.forwarded || 0}</div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Đã trình Approver</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
+          <div className="flex justify-between items-start">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center border border-emerald-100">
+              <Zap className="w-5 h-5" />
+            </div>
+            <Badge className="bg-emerald-100 text-emerald-700 border-none">24h qua</Badge>
+          </div>
+          <div>
+            <div className="text-4xl font-black text-slate-800">{stats?.counts?.approved_24h || 0}</div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Yêu cầu đã thông qua</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Trends and Ratio Charts SRS 10.1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Xu hướng booking (14 ngày)</h3>
+            <span className="text-[10px] font-bold text-slate-400">Đơn vị: Yêu cầu / Ngày</span>
+          </div>
+          <div className="h-40 flex items-end justify-between gap-1">
+            {stats?.trend?.map((t: any, i: number) => {
+              const max = Math.max(...stats.trend.map((x: any) => x.count), 1);
+              const height = (t.count / max) * 100;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
+                  <div className="absolute bottom-full mb-2 bg-slate-800 text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                    {t.count}
+                  </div>
+                  <motion.div 
+                    initial={{ height: 0 }}
+                    animate={{ height: `${height}%` }}
+                    className="w-full bg-slate-100 group-hover:bg-indigo-500 transition-colors rounded-t-lg min-h-[4px]" 
+                  />
+                  <div className="text-[8px] font-black text-slate-300 uppercase rotate-45 mt-4">{safeFormat(t.day, 'dd/MM')}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Tỷ lệ xử lý (30 ngày)</h3>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px] font-black uppercase">
+                <span className="text-emerald-500">Approved</span>
+                <span className="text-slate-800">{stats?.ratio?.approved || 0}</span>
+              </div>
+              <div className="h-3 bg-slate-50 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500 rounded-full" 
+                  style={{ width: `${(stats?.ratio?.approved / ((stats?.ratio?.approved + stats?.ratio?.rejected) || 1)) * 100}%` }} 
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px] font-black uppercase">
+                <span className="text-rose-500">Rejected</span>
+                <span className="text-slate-800">{stats?.ratio?.rejected || 0}</span>
+              </div>
+              <div className="h-3 bg-slate-50 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-rose-500 rounded-full" 
+                  style={{ width: `${(stats?.ratio?.rejected / ((stats?.ratio?.approved + stats?.ratio?.rejected) || 1)) * 100}%` }} 
+                />
+              </div>
+            </div>
+            <div className="pt-4 border-t border-slate-50">
+              <p className="text-[10px] text-slate-400 font-medium italic">
+                * Tỷ lệ phê duyệt hiện tại: {Math.round((stats?.ratio?.approved / ((stats?.ratio?.approved + stats?.ratio?.rejected) || 1)) * 100)}%
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl w-fit">
         <button
           onClick={() => setTab('pending')}
-          className={cn('px-5 py-2 rounded-lg text-xs font-black transition-all', tab === 'pending' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-700')}
+          className={cn('px-6 py-2.5 rounded-xl text-xs font-black transition-all', tab === 'pending' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-700')}
         >
-          Chờ xem xét <span className={cn('ml-1 px-1.5 py-0.5 rounded-md text-[10px]', tab === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500')}>{pending.length}</span>
+          Hàng đợi chung <span className={cn('ml-1 px-1.5 py-0.5 rounded-md text-[10px]', tab === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500')}>{pending.length}</span>
         </button>
         <button
           onClick={() => setTab('mine')}
-          className={cn('px-5 py-2 rounded-lg text-xs font-black transition-all', tab === 'mine' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-700')}
+          className={cn('px-6 py-2.5 rounded-xl text-xs font-black transition-all', tab === 'mine' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-700')}
         >
-          Đang xem xét — của tôi <span className={cn('ml-1 px-1.5 py-0.5 rounded-md text-[10px]', tab === 'mine' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500')}>{inReview.length}</span>
+          Đang xử lý <span className={cn('ml-1 px-1.5 py-0.5 rounded-md text-[10px]', tab === 'mine' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500')}>{inReview.length}</span>
         </button>
       </div>
 

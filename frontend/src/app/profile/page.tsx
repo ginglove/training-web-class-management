@@ -42,8 +42,11 @@ export default function ProfilePage() {
     department: user?.department || '',
     username: user?.username || ''
   });
-  const [stats, setStats] = React.useState<Stats | null>(null);
+  const [stats, setStats] = React.useState<any>(null);
+  const [sessions, setSessions] = React.useState<any[]>([]);
+  const [activity, setActivity] = React.useState<any[]>([]);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [activeSessionsLoading, setActiveSessionsLoading] = React.useState(false);
 
   const isChanged = React.useMemo(() => {
     return (
@@ -62,19 +65,59 @@ export default function ProfilePage() {
     }
   }, []);
 
-  const loadHistory = React.useCallback(async () => {
+  const loadSessions = React.useCallback(async () => {
     try {
-      await fetchApi('/api/bookings?limit=5');
-      // history is unused in UI, just calling API if needed for side effects or future use
-    } catch (err: unknown) {
-      console.error('Failed to load history', err);
+      const res = await fetchApi('/api/auth/sessions');
+      setSessions(res);
+    } catch (err) {
+      console.error('Failed to load sessions', err);
+    }
+  }, []);
+
+  const loadActivity = React.useCallback(async () => {
+    try {
+      const res = await fetchApi('/api/auth/activity');
+      setActivity(res);
+    } catch (err) {
+      console.error('Failed to load activity', err);
     }
   }, []);
 
   React.useEffect(() => {
-    loadStats();
-    loadHistory();
-  }, [loadStats, loadHistory]);
+    if (activeTab === 'info') {
+      // Refresh user data if needed
+    } else if (activeTab === 'security') {
+      loadSessions();
+    } else if (activeTab === 'history') {
+      loadActivity();
+    } else if (activeTab === 'stats') {
+      loadStats();
+    }
+  }, [activeTab, loadSessions, loadActivity, loadStats]);
+
+  const handleRevokeSession = async (sessionId: string) => {
+    try {
+      await fetchApi(`/api/auth/sessions/${sessionId}`, { method: 'DELETE' });
+      toast.success('Đã kết thúc phiên làm việc');
+      loadSessions();
+    } catch (err) {
+      toast.error('Không thể kết thúc phiên');
+    }
+  };
+
+  const handleLogoutOthers = async () => {
+    if (!confirm('Bạn có chắc chắn muốn đăng xuất khỏi tất cả các thiết bị khác?')) return;
+    setActiveSessionsLoading(true);
+    try {
+      await fetchApi('/api/auth/logout-all', { method: 'POST' });
+      toast.success('Đã đăng xuất khỏi tất cả thiết bị khác');
+      loadSessions();
+    } catch (err) {
+      toast.error('Thao tác thất bại');
+    } finally {
+      setActiveSessionsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +143,28 @@ export default function ProfilePage() {
       if (err && typeof err === 'object' && 'errors' in err) {
         setErrors((err as { errors: Record<string, string> }).errors);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Ảnh quá lớn (tối đa 2MB)');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Simulation
+      await new Promise(r => setTimeout(r, 1500)); 
+      toast.success('Đã cập nhật ảnh đại diện (Simulated)');
+      // In reality, we'd get a new URL back and call updateUser
+    } catch (err) {
+      toast.error('Không thể tải ảnh lên');
     } finally {
       setLoading(false);
     }
@@ -143,7 +208,14 @@ export default function ProfilePage() {
             </div>
             
             <div className="relative pt-12">
-              <input type="file" id="avatar-upload" className="hidden" accept="image/png, image/jpeg" />
+              <input 
+                type="file" 
+                id="avatar-upload" 
+                className="hidden" 
+                accept="image/png, image/jpeg" 
+                onChange={handleAvatarChange}
+                disabled={loading}
+              />
               <label 
                 htmlFor="avatar-upload"
                 className="block w-40 h-40 bg-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-[12px_12px_0px_0px_rgba(15,23,42,1)] border-4 border-slate-900 overflow-hidden group/avatar cursor-pointer relative transition-transform group-hover:-translate-y-2 group-hover:-translate-x-2 duration-500"
@@ -404,10 +476,20 @@ export default function ProfilePage() {
                     </div>
                     <button 
                       type="button"
-                      onClick={() => {
-                        const { logout } = useAuthStore.getState();
+                      onClick={async () => {
+                        const { logout, refreshToken } = useAuthStore.getState();
+                        try {
+                          if (refreshToken) {
+                            await fetchApi('/api/auth/logout', {
+                              method: 'POST',
+                              body: JSON.stringify({ refresh_token: refreshToken })
+                            });
+                          }
+                        } catch (err) {
+                          console.error('Server logout failed', err);
+                        }
                         logout();
-                        window.location.href = '/login';
+                        window.location.href = '/';
                       }}
                       className="h-16 px-10 bg-white border-2 border-rose-200 text-rose-500 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all shadow-[6px_6px_0px_0px_rgba(244,63,94,0.1)] active:scale-95"
                     >
@@ -463,66 +545,78 @@ export default function ProfilePage() {
                       </div>
                     </div>
                     
-                    <button className="h-14 px-8 bg-white border-2 border-rose-500 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(244,63,94,1)] active:scale-95">
-                      Đăng xuất tất cả thiết bị khác
+                    <button 
+                      onClick={handleLogoutOthers}
+                      disabled={activeSessionsLoading || sessions.length <= 1}
+                      className="h-14 px-8 bg-white border-2 border-rose-500 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(244,63,94,1)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {activeSessionsLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : 'Đăng xuất tất cả thiết bị khác'}
                     </button>
                   </div>
                   
                   <div className="space-y-6">
-                    {/* Current Session */}
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between p-10 bg-emerald-50 border-2 border-slate-900 rounded-[2.5rem] group shadow-[8px_8px_0px_0px_rgba(16,185,129,0.1)] transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none gap-8">
-                      <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] text-emerald-500 rounded-2xl flex items-center justify-center group-hover:rotate-6 transition-transform duration-500">
-                          <MonitorSmartphone className="w-8 h-8" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="font-black text-slate-900 text-xl tracking-tight uppercase">MacBook Pro - Chrome Desktop</div>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                            <div className="flex items-center gap-2">
-                              <Globe className="w-4 h-4 text-slate-400" />
-                              <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">IP: 14.226.12.94 • Hà Nội, VN</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                              <span className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">Đang trực tuyến</span>
-                            </div>
-                          </div>
-                        </div>
+                    {sessions.length === 0 ? (
+                      <div className="p-10 border-2 border-dashed border-slate-200 rounded-[2.5rem] text-center">
+                        <p className="text-slate-400 font-bold uppercase tracking-widest">Đang tải danh sách phiên...</p>
                       </div>
-                      <Badge className="bg-slate-900 text-white border-none px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-200/40 w-fit">
-                        Thiết bị hiện tại
-                      </Badge>
-                    </div>
-
-                    {/* Other Sessions */}
-                    {[
-                      { device: 'iPhone 13 - Safari Mobile', ip: '27.72.105.18', loc: 'Hồ Chí Minh, VN', time: '2 giờ trước', icon: Smartphone },
-                      { device: 'Windows PC - Edge', ip: '113.161.45.102', loc: 'Đà Nẵng, VN', time: '1 ngày trước', icon: MonitorSmartphone }
-                    ].map((session, i) => {
-                      const SessionIcon = session.icon;
-                      return (
-                        <div key={i} className="flex flex-col lg:flex-row lg:items-center justify-between p-10 bg-white border-2 border-slate-100 rounded-[2.5rem] group hover:border-slate-900 transition-all duration-500 gap-8">
-                          <div className="flex items-center gap-6">
-                            <div className="w-16 h-16 bg-slate-50 border-2 border-slate-100 group-hover:border-slate-900 group-hover:bg-white text-slate-300 group-hover:text-slate-900 rounded-2xl flex items-center justify-center transition-all duration-500">
-                              <SessionIcon className="w-8 h-8" />
-                            </div>
-                            <div className="space-y-1">
-                              <div className="font-black text-slate-800 text-xl tracking-tight uppercase">{session.device}</div>
-                              <div className="flex items-center gap-2">
-                                <Globe className="w-4 h-4 text-slate-300 group-hover:text-slate-400" />
-                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                                  IP: {session.ip} • {session.loc} • {session.time}
-                                </span>
+                    ) : (
+                      sessions.map((session, i) => {
+                        const isCurrent = i === 0; // Simplified for demo
+                        return (
+                          <div 
+                            key={session.id} 
+                            className={cn(
+                              "flex flex-col lg:flex-row lg:items-center justify-between p-10 rounded-[2.5rem] border-2 transition-all gap-8",
+                              isCurrent 
+                                ? "bg-emerald-50 border-slate-900 shadow-[8px_8px_0px_0px_rgba(16,185,129,0.1)]" 
+                                : "bg-white border-slate-100 hover:border-slate-900"
+                            )}
+                          >
+                            <div className="flex items-center gap-6">
+                              <div className={cn(
+                                "w-16 h-16 border-2 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] rounded-2xl flex items-center justify-center transition-transform duration-500",
+                                isCurrent ? "bg-white text-emerald-500 border-slate-900" : "bg-slate-50 text-slate-300 border-slate-100"
+                              )}>
+                                <MonitorSmartphone className="w-8 h-8" />
+                              </div>
+                              <div className="space-y-1">
+                                <div className="font-black text-slate-900 text-xl tracking-tight uppercase truncate max-w-[350px]">
+                                  {session.user_agent || 'Thiết bị không xác định'}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Globe className="w-4 h-4 text-slate-400" />
+                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
+                                      IP: {session.ip_address || 'Unknown'} • {format(new Date(session.created_at), 'HH:mm dd/MM/yyyy')}
+                                    </span>
+                                  </div>
+                                  {isCurrent && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                                      <span className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">Đang trực tuyến</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
+                            
+                            {isCurrent ? (
+                              <Badge className="bg-slate-900 text-white border-none px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-200/40 w-fit">
+                                Thiết bị hiện tại
+                              </Badge>
+                            ) : (
+                              <button 
+                                onClick={() => handleRevokeSession(session.id)}
+                                className="h-14 px-8 bg-white border-2 border-slate-200 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all shadow-lg active:scale-95 flex items-center gap-3"
+                              >
+                                <LogOut className="w-5 h-5" />
+                                Đăng xuất
+                              </button>
+                            )}
                           </div>
-                          <button className="h-14 px-8 bg-white border-2 border-slate-200 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all shadow-lg active:scale-95 flex items-center gap-3">
-                            <LogOut className="w-5 h-5" />
-                            Đăng xuất khỏi thiết bị này
-                          </button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -541,6 +635,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   <button 
+                    onClick={loadActivity}
                     className="h-14 px-8 bg-white border-2 border-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] flex items-center gap-2 active:scale-95"
                   >
                     <RefreshCcw className="w-4 h-4" />
@@ -549,17 +644,19 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Alert nếu có đăng nhập thất bại */}
-                <div className="p-8 bg-rose-50 border-2 border-rose-500 rounded-[2rem] flex items-center gap-6 animate-pulse shadow-[8px_8px_0px_0px_rgba(244,63,94,0.1)]">
-                  <div className="w-14 h-14 bg-rose-500 text-white rounded-2xl flex items-center justify-center shrink-0 border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
-                    <AlertTriangle className="w-7 h-7" />
+                {activity.some(a => a.status === 'FAILED') && (
+                  <div className="p-8 bg-rose-50 border-2 border-rose-500 rounded-[2rem] flex items-center gap-6 animate-pulse shadow-[8px_8px_0px_0px_rgba(244,63,94,0.1)]">
+                    <div className="w-14 h-14 bg-rose-500 text-white rounded-2xl flex items-center justify-center shrink-0 border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
+                      <AlertTriangle className="w-7 h-7" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-black text-rose-600 uppercase tracking-[0.2em]">Cảnh báo bảo mật</p>
+                      <p className="text-sm font-black text-slate-900 leading-none">
+                        ⚠ Phát hiện đăng nhập thất bại gần đây. Vui lòng kiểm tra nhật ký bên dưới.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-black text-rose-600 uppercase tracking-[0.2em]">Cảnh báo bảo mật</p>
-                    <p className="text-sm font-black text-slate-900 leading-none">
-                      ⚠ Phát hiện <span className="text-rose-600">3 lần</span> đăng nhập thất bại từ IP <span className="underline decoration-rose-500 decoration-2">172.16.254.1</span> gần đây.
-                    </p>
-                  </div>
-                </div>
+                )}
 
                 {/* Danh sách login */}
                 <div className="bg-white border-2 border-slate-900 rounded-[2.5rem] overflow-hidden shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)]">
@@ -574,47 +671,47 @@ export default function ProfilePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {[
-                          { device: 'MacBook Pro - Chrome', ip: '14.226.12.94', time: 'Hôm nay, 10:45', status: 'SUCCESS', loc: 'Hà Nội, VN' },
-                          { device: 'iPhone 13 - Safari', ip: '27.72.105.18', time: 'Hôm qua, 22:15', status: 'SUCCESS', loc: 'Hồ Chí Minh, VN' },
-                          { device: 'Unknown Device - Edge', ip: '172.16.254.1', time: '02/05/2026, 09:30', status: 'FAILED', loc: 'Unknown' },
-                          { device: 'Unknown Device - Edge', ip: '172.16.254.1', time: '02/05/2026, 09:29', status: 'FAILED', loc: 'Unknown' },
-                          { device: 'Unknown Device - Edge', ip: '172.16.254.1', time: '02/05/2026, 09:28', status: 'FAILED', loc: 'Unknown' },
-                          { device: 'Windows PC - Firefox', ip: '113.161.45.102', time: '01/05/2026, 14:20', status: 'SUCCESS', loc: 'Đà Nẵng, VN' },
-                        ].map((log, i) => (
-                          <tr key={i} className="group hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
-                            <td className="px-10 py-8 border-r border-slate-100">
-                              <div className="flex items-center gap-4">
-                                <div className={cn(
-                                  "w-10 h-10 rounded-xl flex items-center justify-center border-2 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] transition-transform group-hover:rotate-6",
-                                  log.device.includes('iPhone') ? "bg-amber-50 text-amber-500 border-amber-900/10" : "bg-indigo-50 text-indigo-500 border-indigo-900/10"
-                                )}>
-                                  {log.device.includes('iPhone') ? <Smartphone className="w-5 h-5" /> : <MonitorSmartphone className="w-5 h-5" />}
-                                </div>
-                                <span className="font-black text-slate-900 text-sm tracking-tight uppercase">{log.device}</span>
-                              </div>
-                            </td>
-                            <td className="px-10 py-8 border-r border-slate-100">
-                              <div className="space-y-1">
-                                <p className="font-black text-slate-700 text-sm">{log.ip}</p>
-                                <p className="text-[10px] font-bold text-slate-400 italic uppercase tracking-widest">{log.loc}</p>
-                              </div>
-                            </td>
-                            <td className="px-10 py-8 border-r border-slate-100">
-                              <span className="font-black text-slate-500 text-[11px] uppercase tracking-widest">{log.time}</span>
-                            </td>
-                            <td className="px-10 py-8">
-                              <Badge className={cn(
-                                "border-2 font-black uppercase text-[9px] tracking-widest px-4 py-1.5 rounded-xl",
-                                log.status === 'SUCCESS' 
-                                  ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
-                                  : "bg-rose-50 text-rose-600 border-rose-200 animate-pulse"
-                              )}>
-                                {log.status === 'SUCCESS' ? 'Thành công' : 'Thất bại'}
-                              </Badge>
-                            </td>
+                        {activity.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="px-10 py-20 text-center text-slate-400 font-bold uppercase tracking-widest italic">Không có dữ liệu hoạt động</td>
                           </tr>
-                        ))}
+                        ) : (
+                          activity.map((log, i) => (
+                            <tr key={i} className="group hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                              <td className="px-10 py-8 border-r border-slate-100">
+                                <div className="flex items-center gap-4">
+                                  <div className={cn(
+                                    "w-10 h-10 rounded-xl flex items-center justify-center border-2 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] transition-transform group-hover:rotate-6",
+                                    (log.user_agent || '').includes('Mobile') ? "bg-amber-50 text-amber-500 border-amber-900/10" : "bg-indigo-50 text-indigo-500 border-indigo-900/10"
+                                  )}>
+                                    {(log.user_agent || '').includes('Mobile') ? <Smartphone className="w-5 h-5" /> : <MonitorSmartphone className="w-5 h-5" />}
+                                  </div>
+                                  <span className="font-black text-slate-900 text-sm tracking-tight uppercase truncate max-w-[200px]">{log.user_agent || 'Thiết bị không xác định'}</span>
+                                </div>
+                              </td>
+                              <td className="px-10 py-8 border-r border-slate-100">
+                                <div className="space-y-1">
+                                  <p className="font-black text-slate-700 text-sm">{log.ip_address || 'Unknown'}</p>
+                                </div>
+                              </td>
+                              <td className="px-10 py-8 border-r border-slate-100">
+                                <span className="font-black text-slate-500 text-[11px] uppercase tracking-widest">
+                                  {log.created_at ? format(new Date(log.created_at), 'HH:mm dd/MM/yyyy') : 'N/A'}
+                                </span>
+                              </td>
+                              <td className="px-10 py-8">
+                                <Badge className={cn(
+                                  "border-2 font-black uppercase text-[9px] tracking-widest px-4 py-1.5 rounded-xl",
+                                  log.status === 'SUCCESS' 
+                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                                    : "bg-rose-50 text-rose-600 border-rose-200 animate-pulse"
+                                )}>
+                                  {log.status === 'SUCCESS' ? 'Thành công' : 'Thất bại'}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -640,15 +737,15 @@ export default function ProfilePage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {[
-                    { label: 'Tổng số booking', value: stats?.total || 42, icon: LayoutDashboard, color: 'indigo', text: 'text-indigo-600' },
-                    { label: 'Đã được duyệt', value: stats?.approved || 35, icon: CheckCircle2, color: 'emerald', text: 'text-emerald-600' },
-                    { label: 'Bị từ chối', value: stats?.rejected || 4, icon: Trash2, color: 'rose', text: 'text-rose-600' },
-                    { label: 'Tỉ lệ duyệt', value: '83%', icon: Zap, color: 'amber', text: 'text-amber-600' }
+                    { label: 'Tổng số booking', value: stats?.total || 0, icon: LayoutDashboard, color: 'indigo', text: 'text-indigo-600' },
+                    { label: 'Đã được duyệt', value: stats?.approved || 0, icon: CheckCircle2, color: 'emerald', text: 'text-emerald-600' },
+                    { label: 'Bị từ chối', value: stats?.rejected || 0, icon: Trash2, color: 'rose', text: 'text-rose-600' },
+                    { label: 'Đang xử lý', value: stats?.processing || 0, icon: Zap, color: 'amber', text: 'text-amber-600' }
                   ].map((stat, i) => {
                     const StatIcon = stat.icon;
                     return (
                       <div key={i} className="p-6 bg-white border-2 border-slate-900 rounded-3xl shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] space-y-4">
-                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border-2 border-slate-900 shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] text-white", `bg-${stat.color}-500`)}>
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border-2 border-slate-900 shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] text-white", i === 0 ? "bg-indigo-500" : i === 1 ? "bg-emerald-500" : i === 2 ? "bg-rose-500" : "bg-amber-500")}>
                           <StatIcon className="w-5 h-5" />
                         </div>
                         <div className="space-y-1">

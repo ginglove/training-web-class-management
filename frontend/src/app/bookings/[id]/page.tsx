@@ -195,16 +195,37 @@ export default function BookingDetailPage() {
         </div>
 
         <div className="flex gap-4">
-           {status === 'DRAFT' && role === 'CREATOR' && (
-             <Button 
-               onClick={() => handleAction('submit')}
-               disabled={actionLoading}
-               className="h-16 px-10 rounded-2xl bg-primary text-white font-black uppercase tracking-widest shadow-2xl shadow-primary/30 flex items-center gap-3 hover:scale-105 active:scale-95 transition-all"
-             >
-               <Send className="w-5 h-5" />
-               Gửi thẩm định ngay
-             </Button>
-           )}
+            {(status === 'DRAFT' || status === 'REJECTED') && role === 'CREATOR' && (
+              <div className="flex gap-4">
+                <Button 
+                  onClick={() => router.push(`/bookings/${booking.id}/edit`)}
+                  className="h-16 px-10 rounded-2xl bg-white border-2 border-slate-200 text-slate-900 font-black uppercase tracking-widest shadow-xl shadow-slate-100 flex items-center gap-3 hover:bg-slate-50 transition-all"
+                >
+                  <ClipboardList className="w-5 h-5" />
+                  Chỉnh sửa
+                </Button>
+                {status === 'DRAFT' && (
+                  <Button 
+                    onClick={() => handleAction('submit')}
+                    disabled={actionLoading}
+                    className="h-16 px-10 rounded-2xl bg-primary text-white font-black uppercase tracking-widest shadow-2xl shadow-primary/30 flex items-center gap-3 hover:scale-105 active:scale-95 transition-all"
+                  >
+                    <Send className="w-5 h-5" />
+                    Gửi thẩm định ngay
+                  </Button>
+                )}
+              </div>
+            )}
+            {status === 'PENDING_REVIEW' && role === 'CREATOR' && (
+              <Button 
+                onClick={() => handleAction('cancel')}
+                disabled={actionLoading}
+                className="h-16 px-10 rounded-2xl bg-white border-2 border-rose-200 text-rose-500 font-black uppercase tracking-widest shadow-xl shadow-rose-100 flex items-center gap-3 hover:bg-rose-50 transition-all"
+              >
+                <X className="w-5 h-5" />
+                Hủy yêu cầu
+              </Button>
+            )}
            {status === 'PENDING_REVIEW' && (role === 'REVIEWER' || role === 'ADMIN') && (
               <Button 
                 onClick={() => router.push(`/reviewer/evaluate/${booking.id}`)}

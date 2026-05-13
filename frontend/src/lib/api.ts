@@ -60,9 +60,15 @@ export async function fetchApi(endpoint: string, options: FetchApiOptions = {}) 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error = new Error(data.message || data.error || 'API Request Failed') as Error & Record<string, unknown>;
+    const error = new Error(
+      data.message || 
+      data.error || 
+      `API Request Failed (${response.status} ${response.statusText})`
+    ) as Error & Record<string, unknown>;
+    
     // Attach original data payload to the error object so we can read err.error codes
     Object.assign(error, data);
+    error.status = response.status;
     throw error;
   }
 

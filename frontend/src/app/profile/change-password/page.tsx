@@ -37,14 +37,21 @@ export default function ChangePasswordPage() {
 
   const [strength, setStrength] = React.useState(0);
 
+  const isValid = formData.new_password.length >= 8 &&
+                  /[A-Z]/.test(formData.new_password) &&
+                  /[0-9]/.test(formData.new_password) &&
+                  /[^A-Za-z0-9]/.test(formData.new_password);
+  
+  const isMatch = formData.new_password === formData.confirm_password && formData.new_password !== '';
+
   React.useEffect(() => {
     const pass = formData.new_password;
     let s = 0;
-    if (pass.length > 5) s++;
-    if (pass.length > 8) s++;
+    if (pass.length >= 8) s++;
     if (/[A-Z]/.test(pass)) s++;
     if (/[0-9]/.test(pass)) s++;
     if (/[^A-Za-z0-9]/.test(pass)) s++;
+    if (s === 4 && pass.length > 12) s = 5;
     setStrength(s);
   }, [formData.new_password]);
 
@@ -267,7 +274,7 @@ export default function ChangePasswordPage() {
               <div className="pt-12 border-t-2 border-slate-50">
                 <button 
                   type="submit"
-                  disabled={loading || strength < 3}
+                  disabled={loading || !isMatch || !isValid}
                   className="w-full h-20 bg-slate-900 border-2 border-slate-900 rounded-[2rem] font-black text-[13px] uppercase tracking-[0.3em] text-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] flex items-center justify-center gap-4 active:scale-95 group disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
                 >
                   {loading ? (

@@ -46,19 +46,41 @@ export default function MyBookingsPage() {
   const [viewMode, setViewMode] = React.useState<'card' | 'table'>('card');
   const [activeTab, setActiveTab] = React.useState('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const loadMyBookings = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetchApi(`/api/bookings/my-bookings`);
-      setBookings(res.data || []);
+      let url = `/api/bookings/my-bookings?`;
+      if (activeTab !== 'ALL' && activeTab !== 'UPCOMING' && activeTab !== 'PAST' && activeTab !== 'PENDING') {
+        url += `status=${activeTab}&`;
+      }
+      if (debouncedSearch) {
+        url += `search=${encodeURIComponent(debouncedSearch)}&`;
+      }
+      
+      const res = await fetchApi(url);
+      let data = res.data || [];
+      
+      // Secondary client-side filters for things not yet in API
+      const now = new Date();
+      if (activeTab === 'UPCOMING') data = data.filter((b: any) => new Date(b.date) >= now);
+      if (activeTab === 'PAST') data = data.filter((b: any) => new Date(b.date) < now);
+      if (activeTab === 'PENDING') data = data.filter((b: any) => ['PENDING_REVIEW', 'IN_REVIEW', 'FORWARDED', 'PENDING_APPROVAL'].includes(b.status));
+      
+      setBookings(data);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Lỗi khi tải danh sách booking'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTab, debouncedSearch]);
 
   React.useEffect(() => {
     if (user) {
@@ -68,27 +90,15 @@ export default function MyBookingsPage() {
 
   const kpis = {
     total: bookings.length,
-    pending: bookings.filter(b => ['PENDING_REVIEW', 'IN_REVIEW', 'PENDING_APPROVAL'].includes(b.status)).length,
+    pending: bookings.filter(b => ['PENDING_REVIEW', 'IN_REVIEW', 'FORWARDED', 'PENDING_APPROVAL'].includes(b.status)).length,
     approved: bookings.filter(b => b.status === 'APPROVED').length,
     rejected: bookings.filter(b => b.status === 'REJECTED' || b.status === 'CANCELLED').length,
   };
 
-  const now = new Date();
-  
-  const filteredBookings = bookings.filter(b => {
-    const matchesSearch = (b.course_name || b.purpose || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (b.class_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (!matchesSearch) return false;
-    
-    if (activeTab === 'ALL') return true;
-    if (activeTab === 'UPCOMING') return new Date(b.date) >= now;
-    if (activeTab === 'PAST') return new Date(b.date) < now;
-    if (activeTab === 'PENDING') return ['PENDING_REVIEW', 'IN_REVIEW', 'PENDING_APPROVAL'].includes(b.status);
-    return b.status === activeTab;
-  });
+  const filteredBookings = bookings; // Now handled primarily by API and load function
 
   const getStatusConfig = (booking: Booking) => {
+    const now = new Date();
     if (booking.status === 'APPROVED' && new Date(booking.date) < now) {
       return { color: 'bg-slate-100 text-slate-800 border-slate-200', icon: CheckCircle2, label: 'Đã hoàn thành' };
     }
@@ -97,6 +107,7 @@ export default function MyBookingsPage() {
       case 'DRAFT': return { color: 'bg-slate-50 text-slate-500 border-slate-200', icon: FileText, label: 'Bản nháp' };
       case 'PENDING_REVIEW': return { color: 'bg-sky-50 text-sky-600 border-sky-100', icon: Clock, label: 'Chờ Review' };
       case 'IN_REVIEW': return { color: 'bg-indigo-50 text-indigo-600 border-indigo-100', icon: Activity, label: 'Đang Review' };
+      case 'FORWARDED': return { color: 'bg-amber-50 text-amber-600 border-amber-100', icon: ArrowUpRight, label: 'Đã chuyển Approver' };
       case 'PENDING_APPROVAL': return { color: 'bg-amber-50 text-amber-600 border-amber-100', icon: ShieldCheck, label: 'Chờ Duyệt' };
       case 'APPROVED': return { color: 'bg-emerald-50 text-emerald-600 border-emerald-100', icon: CheckCircle, label: 'Đã phê duyệt' };
       case 'REJECTED': return { color: 'bg-rose-50 text-rose-600 border-rose-100', icon: XCircle, label: 'Bị từ chối' };
@@ -444,8 +455,8 @@ export default function MyBookingsPage() {
                           <div className="flex items-center gap-1.5">
                              {[
                                { id: 'creator', label: 'Creator', active: true },
-                               { id: 'reviewer', label: 'Reviewer', active: ['IN_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'].includes(booking.status) },
-                               { id: 'approver', label: 'Approver', active: ['APPROVED', 'REJECTED'].includes(booking.status) }
+                               { id: 'reviewer', label: 'Reviewer', active: ['IN_REVIEW', 'FORWARDED', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'].includes(booking.status) },
+                               { id: 'approver', label: 'Approver', active: ['FORWARDED', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'].includes(booking.status) }
                              ].map((step, idx) => (
                                <React.Fragment key={step.id}>
                                   <div className={cn(

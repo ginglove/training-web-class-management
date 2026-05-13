@@ -9,7 +9,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { 
   ChevronLeft, ChevronRight, Clock, Users, MapPin, 
   Search, PlusCircle, Calendar as CalendarIcon, Download,
-  AlertTriangle, ListFilter
+  AlertTriangle, ListFilter, ExternalLink, User as UserIcon,
+  Lock as LockIcon, Plus, X, ChevronDown
 } from 'lucide-react';
 import { 
   format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, 
@@ -45,6 +46,8 @@ interface BookingEvent {
   class_id?: string;
   attendee_count?: number;
 }
+
+type CalendarView = 'month' | 'week' | 'day';
 
 interface TimeSlot {
   slot_id?: string;
@@ -555,49 +558,131 @@ function ScheduleContent() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-24">
-      
-      {/* Breadcrumb */}
-      <nav className="text-sm font-medium text-slate-500 mb-2">
-        <Link href="/home" className="hover:text-indigo-600 transition-colors">Trang chủ</Link>
-        <span className="mx-2">&gt;</span>
-        <span className="text-slate-800">Lịch phòng học</span>
-      </nav>
-
-      <div className="flex items-center gap-3">
-         <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 border border-indigo-100 shadow-sm">
-            <CalendarIcon className="w-5 h-5" />
-         </div>
-         <h1 className="text-2xl font-black tracking-tight text-slate-800">Lịch Phòng Học</h1>
-      </div>
-
-      {/* Control Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4">
-        
-        {/* Row 1 — Điều hướng thời gian */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-xl border border-slate-200">
-            <button onClick={navigatePrev} className="px-3 py-2 hover:bg-white rounded-lg text-slate-500 hover:text-slate-800 font-bold text-sm shadow-sm transition-all flex items-center gap-1">
-              <ChevronLeft className="w-4 h-4" /> Trước
-            </button>
-            <button onClick={navigateToday} className="px-4 py-2 text-sm font-black text-slate-700 hover:bg-white rounded-lg uppercase shadow-sm transition-all">
-              Hôm nay
-            </button>
-            <button onClick={navigateNext} className="px-3 py-2 hover:bg-white rounded-lg text-slate-500 hover:text-slate-800 font-bold text-sm shadow-sm transition-all flex items-center gap-1">
-              Tiếp <ChevronRight className="w-4 h-4" />
-            </button>
+    <div className="min-h-screen bg-[#F8FAFC] p-4 lg:p-8 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+      <div className="max-w-[1600px] mx-auto space-y-8">
+        {/* Header Section - Brutalist Premium */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-12 relative">
+          <div className="absolute -left-10 top-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -z-10" />
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-slate-900 rounded-[1.5rem] flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(79,70,229,1)]">
+                <CalendarIcon className="w-8 h-8 text-white" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-600">Real-time Scheduler</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hệ thống đang trực tuyến</span>
+                </div>
+              </div>
+            </div>
+            <h1 className="text-6xl lg:text-8xl font-black text-slate-900 tracking-tighter leading-[0.85] uppercase">
+              LỊCH <br />
+              <span className="text-indigo-600 underline decoration-[12px] decoration-indigo-600/10 underline-offset-[12px]">PHÒNG HỌC</span>
+            </h1>
+            <p className="text-lg font-bold text-slate-500 max-w-xl leading-relaxed italic">
+              Quản lý tài nguyên lớp học tập trung với độ trễ thấp & bảo mật đa tầng theo tiêu chuẩn SRS v7.
+            </p>
           </div>
 
-          <div className="text-lg font-black text-slate-700">
-            {view === 'month' && `Tháng ${format(currentDate, 'M, yyyy', { locale: vi })}`}
-            {view === 'week' && `Tuần ${format(currentDate, 'w', { locale: vi })}: ${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'dd')} – ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}`}
-            {view === 'day' && format(currentDate, 'EEEE, dd/MM/yyyy', { locale: vi })}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex bg-white p-2 rounded-[2.5rem] border-4 border-slate-900 shadow-[8px_8px_0px_0px_rgba(15,23,42,1)]">
+              {(['month', 'week', 'day'] as CalendarView[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={cn(
+                    "px-8 py-3 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.2em] transition-all",
+                    view === v 
+                      ? "bg-slate-900 text-white shadow-xl" 
+                      : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+                  )}
+                >
+                  {v === 'month' ? 'Tháng' : v === 'week' ? 'Tuần' : 'Ngày'}
+                </button>
+              ))}
+            </div>
+            
+            <button 
+              onClick={navigateToday}
+              className="px-8 py-4 bg-white border-4 border-slate-900 rounded-[2.5rem] text-[11px] font-black text-slate-900 hover:bg-slate-900 hover:text-white shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] transition-all active:translate-y-1 active:shadow-none uppercase tracking-widest"
+            >
+              HÔM NAY
+            </button>
           </div>
         </div>
 
-        {/* Row 2 — Thanh công cụ */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+        {/* Filters & Navigation Bar */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-8 flex flex-wrap items-center gap-4">
+            {/* Month/Date Selector */}
+            <div className="flex items-center gap-2 bg-white p-2 border-2 border-slate-900 rounded-[2.5rem] shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
+              <button 
+                onClick={navigatePrev}
+                className="p-3 hover:bg-slate-100 rounded-full transition-colors text-slate-900"
+              >
+                <ChevronLeft className="w-5 h-5 stroke-[3]" />
+              </button>
+              <div className="px-6 text-xl font-black text-slate-900 min-w-[200px] text-center">
+                {view === 'month' && `Tháng ${format(currentDate, 'M, yyyy', { locale: vi })}`}
+                {view === 'week' && `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'dd/MM')} - ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}`}
+                {view === 'day' && format(currentDate, 'dd/MM/yyyy', { locale: vi })}
+              </div>
+              <button 
+                onClick={navigateNext}
+                className="p-3 hover:bg-slate-100 rounded-full transition-colors text-slate-900"
+              >
+                <ChevronRight className="w-5 h-5 stroke-[3]" />
+              </button>
+            </div>
+
+            {/* Room Filter */}
+            <div className="relative group">
+              <select
+                value={selectedRoom}
+                onChange={(e) => setSelectedRoom(e.target.value)}
+                className="appearance-none pl-12 pr-10 py-3.5 bg-white border-2 border-slate-900 rounded-[2.5rem] text-sm font-black text-slate-900 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] cursor-pointer"
+              >
+                <option value="all">Tất cả phòng học</option>
+                {rooms.map(room => (
+                  <option key={room.id} value={room.id}>{room.name}</option>
+                ))}
+              </select>
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-900 stroke-[2.5]" />
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors pointer-events-none" />
+            </div>
+          </div>
+
+          <div className="lg:col-span-4 flex justify-end gap-3">
+            {user?.role === 'ADMIN' && (
+              <button 
+                onClick={() => openAdminBlock()}
+                className="flex items-center gap-2 px-6 py-3.5 bg-rose-500 text-white border-2 border-slate-900 rounded-[2.5rem] text-sm font-black shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] transition-all active:translate-y-0 active:shadow-none"
+              >
+                <LockIcon className="w-4 h-4 stroke-[3]" />
+                KHÓA LỊCH
+              </button>
+            )}
+            <button 
+              onClick={() => router.push('/bookings/new')}
+              className="flex items-center gap-2 px-8 py-3.5 bg-indigo-600 text-white border-2 border-slate-900 rounded-[2.5rem] text-sm font-black shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] transition-all active:translate-y-0 active:shadow-none"
+            >
+              <Plus className="w-5 h-5 stroke-[3]" />
+              ĐẶT PHÒNG
+            </button>
+          </div>
+        </div>
+
+        {/* Main Calendar Container */}
+        <div className="bg-white border-4 border-slate-900 rounded-[3rem] shadow-[12px_12px_0px_0px_rgba(15,23,42,1)] overflow-hidden flex flex-col min-h-[800px] relative">
+          {loading && (
+            <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 border-8 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+                <p className="font-black text-slate-900 animate-pulse uppercase tracking-widest">Đang tải lịch biểu...</p>
+              </div>
+            </div>
+          )}
             <div className="relative flex-1 sm:w-64">
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-slate-400" />
@@ -724,39 +809,40 @@ function ScheduleContent() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-6 px-6 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-yellow-400 rounded-full" /><span className="text-xs font-bold text-slate-600">Chờ xem xét</span></div>
-        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-orange-400 rounded-full" /><span className="text-xs font-bold text-slate-600">Chờ phê duyệt</span></div>
-        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-500 rounded-full" /><span className="text-xs font-bold text-slate-600">Đã phê duyệt</span></div>
-        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-slate-800 rounded-full" /><span className="text-xs font-bold text-slate-600">Block thủ công</span></div>
-        <div className="flex items-center gap-2"><div className="border-2 border-blue-500 w-4 h-4 rounded-full" /><span className="text-xs font-bold text-slate-600">Của tôi (Creator)</span></div>
+      {/* Legend - Brutalist Premium */}
+      <div className="flex flex-wrap items-center gap-8 px-10 py-6 bg-white rounded-[2.5rem] border-2 border-slate-900 shadow-[8px_8px_0px_0px_rgba(15,23,42,0.05)]">
+        <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mr-4">Chú giải vận hành</h4>
+        <div className="flex items-center gap-3"><div className="w-4 h-4 bg-yellow-400 border-2 border-slate-900 rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Chờ xem xét</span></div>
+        <div className="flex items-center gap-3"><div className="w-4 h-4 bg-orange-400 border-2 border-slate-900 rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Chờ phê duyệt</span></div>
+        <div className="flex items-center gap-3"><div className="w-4 h-4 bg-green-500 border-2 border-slate-900 rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Đã phê duyệt</span></div>
+        <div className="flex items-center gap-3"><div className="w-4 h-4 bg-slate-800 border-2 border-slate-900 rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Block thủ công</span></div>
+        <div className="flex items-center gap-3"><div className="border-2 border-blue-500 w-4 h-4 rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Của tôi (Creator)</span></div>
         {user?.role === 'ADMIN' && (
-          <div className="flex items-center gap-2"><div className="border-2 border-red-500 w-4 h-4 rounded-full" /><span className="text-xs font-bold text-slate-600">Conflict (Admin)</span></div>
+          <div className="flex items-center gap-3"><div className="border-2 border-red-500 w-4 h-4 rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Conflict (Admin)</span></div>
         )}
       </div>
 
-      {/* 18.8.3 Room Availability Indicator — shown only when viewing a single room */}
+      {/* 18.8.3 Room Availability Indicator — Brutalist Premium */}
       {selectedRoom !== 'all' && roomSlots.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-3">
-          <p className="text-[11px] font-black text-slate-400 uppercase mb-2 tracking-wider">
-            Tình trạng phòng hôm nay
+        <div className="bg-white rounded-[2.5rem] border-2 border-slate-900 shadow-[8px_8px_0px_0px_rgba(15,23,42,0.05)] px-8 py-6">
+          <p className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-[0.3em] flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-indigo-500" />
+            Tình trạng phòng thời gian thực
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {roomSlots.map((slot, i) => (
               <div
                 key={slot.slot_id ?? i}
                 title={slot.isAvailable ? `✅ Trống: ${slot.slot_name}` : `🔴 Đã đặt: ${slot.slot_name}${slot.booked_by ? ` — ${slot.booked_by}` : ''}`}
                 className={cn(
-                  "relative group flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-default transition-all",
+                  "relative group flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase cursor-default transition-all border-2",
                   slot.isAvailable
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                    : "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-900/10 hover:border-emerald-500"
+                    : "bg-rose-50 text-rose-600 border-rose-900/10 hover:border-rose-500 opacity-60 hover:opacity-100"
                 )}
               >
-                <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", slot.isAvailable ? "bg-emerald-500" : "bg-rose-500")} />
+                <div className={cn("w-2 h-2 rounded-full flex-shrink-0 border border-slate-900", slot.isAvailable ? "bg-emerald-500" : "bg-rose-500")} />
                 {slot.start_time?.substring(0,5)} – {slot.end_time?.substring(0,5)}
               </div>
             ))}
@@ -764,31 +850,38 @@ function ScheduleContent() {
         </div>
       )}
 
-      {/* Calendar Grid */}
-      <div className="bg-white border border-slate-200 rounded-[2rem] shadow-xl overflow-hidden min-h-[600px] flex flex-col relative">
+      {/* Calendar Grid - Brutalist Premium */}
+      <div className="bg-white border-4 border-slate-900 rounded-[3rem] shadow-[12px_12px_0px_0px_rgba(15,23,42,0.1)] overflow-hidden min-h-[700px] flex flex-col relative transition-all hover:shadow-[16px_16px_0px_0px_rgba(15,23,42,0.1)]">
         {loading && (
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent" />
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-md z-50 flex flex-col items-center justify-center gap-6">
+            <div className="w-20 h-20 border-[8px] border-slate-100 border-t-indigo-600 rounded-full animate-spin shadow-inner" />
+            <div className="space-y-1 text-center">
+              <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.4em] animate-pulse">Synchronizing</p>
+              <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">Vui lòng đợi trong giây lát...</p>
+            </div>
           </div>
         )}
 
         {/* Month View Implementation */}
         {view === 'month' && (
-          <>
-            <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/50">
+          <div className="flex flex-col flex-1">
+            <div className="grid grid-cols-7 border-b-4 border-slate-900 bg-slate-50">
               {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day, i) => (
-                <div key={day} className={cn("p-4 text-center text-xs font-black tracking-widest", i === 6 ? "text-rose-500" : "text-slate-500")}>
+                <div key={day} className={cn(
+                  "p-6 text-center text-[10px] font-black tracking-[0.3em] border-r-4 border-slate-900 last:border-r-0 uppercase",
+                  i >= 5 ? "bg-rose-50/50 text-rose-600" : "text-slate-400"
+                )}>
                   {day}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 flex-1 auto-rows-fr">
+            <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-900 gap-[4px]">
               {daysInMonth.map((day, idx) => {
                 const isCurrentMonth = isSameMonth(day, currentDate);
                 const isToday = isSameDay(day, new Date());
                 const isPastDay = day < startOfDay(new Date());
+                const isWeekend = idx % 7 === 5 || idx % 7 === 6;
                 
-                // Filter events that overlap with this day (supports multi-day events)
                 const dayEvents = events.filter(e => {
                   if (!e.start_datetime || !e.end_datetime) return false;
                   const eventStart = startOfDay(new Date(e.start_datetime));
@@ -796,45 +889,47 @@ function ScheduleContent() {
                   return day >= eventStart && day <= eventEnd;
                 });
 
-                const visibleEvents = dayEvents.slice(0, 3);
-                const hiddenCount = dayEvents.length - 3;
-
-                const handleDayClick = () => {
-                  if (user?.role === 'ADMIN') {
-                    openAdminBlock(day);
-                  } else if (user?.role === 'CREATOR') {
-                    if (isPastDay) return;
-                    openQuickBooking(day);
-                  }
-                };
+                const visibleEvents = dayEvents.slice(0, 4);
+                const hiddenCount = dayEvents.length - 4;
 
                 return (
                   <div 
                     key={day.toString()} 
-                    onClick={handleDayClick}
+                    onClick={() => {
+                      if (user?.role === 'ADMIN') openAdminBlock(day);
+                      else if (user?.role === 'CREATOR' && !isPastDay) openQuickBooking(day);
+                    }}
                     className={cn(
-                      "min-h-[120px] p-2 border-b border-r border-slate-100 flex flex-col gap-1 transition-colors group",
-                      isToday ? "bg-indigo-50/50" : "hover:bg-slate-50/50",
-                      !isCurrentMonth && "bg-slate-50/30",
-                      isPastDay ? "cursor-not-allowed" : "cursor-pointer",
-                      idx % 7 === 6 && "border-r-0"
+                      "min-h-[160px] p-4 flex flex-col gap-2 transition-all group bg-white relative",
+                      isToday ? "bg-indigo-50/50" : "hover:bg-slate-50",
+                      !isCurrentMonth && "bg-slate-50/50 opacity-40 grayscale-[0.5]",
+                      isWeekend && !isToday && "bg-slate-50/30",
+                      isPastDay ? "cursor-not-allowed" : "cursor-pointer"
                     )}
                   >
-                    <div className="flex justify-between items-start mb-1">
+                    {isToday && (
+                      <div className="absolute inset-0 border-4 border-indigo-600 z-10 pointer-events-none" />
+                    )}
+
+                    <div className="flex justify-between items-start mb-3">
                       <span className={cn(
-                        "w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold",
-                        isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : 
-                        !isCurrentMonth ? "text-slate-400" : "text-slate-700"
+                        "w-10 h-10 flex items-center justify-center rounded-[1rem] text-sm font-black transition-all border-2",
+                        isToday ? "bg-slate-900 text-white border-slate-900 shadow-lg scale-110 -rotate-3" : 
+                        !isCurrentMonth ? "text-slate-200 border-transparent" : "text-slate-900 border-slate-100 group-hover:border-slate-900 group-hover:scale-110"
                       )}>
                         {format(day, 'd')}
                       </span>
+                      {dayEvents.length > 0 && !isPastDay && (
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-1">
                       {visibleEvents.map(evt => {
                         const isMine = evt.user_id === user?.id;
                         
-                        // Conflict checking for Admin
                         let isConflict = false;
                         if (user?.role === 'ADMIN') {
                           isConflict = dayEvents.some(other => {
@@ -848,45 +943,56 @@ function ScheduleContent() {
                           });
                         }
 
-                        let bgColor = 'bg-slate-100 text-slate-600';
+                        let bgColor = 'bg-slate-50 text-slate-900 border-slate-200';
+                        let statusDot = 'bg-slate-400';
                         
-                        if (evt.event_type === 'MANUAL_BLOCK') bgColor = 'bg-slate-800 text-white';
-                        else if (evt.status === 'APPROVED') bgColor = 'bg-green-100 text-green-700';
-                        else if (evt.status === 'PENDING_APPROVAL') bgColor = 'bg-orange-100 text-orange-700';
-                        else if (evt.status === 'PENDING_REVIEW' || evt.status === 'IN_REVIEW') bgColor = 'bg-yellow-100 text-yellow-800';
-
-                        const tooltip = `Phòng: ${evt.class_name}\nNgười đặt: ${evt.user_name}\nThời gian: ${format(new Date(evt.start_datetime), 'HH:mm')} - ${format(new Date(evt.end_datetime), 'HH:mm')}\nTrạng thái: ${evt.status || 'Khóa thủ công'}`;
+                        if (evt.event_type === 'MANUAL_BLOCK') {
+                          bgColor = 'bg-slate-900 text-white border-slate-900';
+                          statusDot = 'bg-white';
+                        } else if (evt.status === 'APPROVED') {
+                          bgColor = 'bg-emerald-50 text-emerald-900 border-emerald-900/10 hover:border-emerald-500';
+                          statusDot = 'bg-emerald-500';
+                        } else if (evt.status === 'PENDING_APPROVAL') {
+                          bgColor = 'bg-orange-50 text-orange-900 border-orange-900/10 hover:border-orange-500';
+                          statusDot = 'bg-orange-500';
+                        } else if (evt.status === 'PENDING_REVIEW' || evt.status === 'IN_REVIEW') {
+                          bgColor = 'bg-indigo-50 text-indigo-900 border-indigo-900/10 hover:border-indigo-500';
+                          statusDot = 'bg-indigo-500';
+                        }
 
                         return (
                           <div 
                             key={evt.id} 
-                            onClick={(e: React.MouseEvent) => {
+                            onClick={(e) => {
                               e.stopPropagation();
                               handleEventClick(e, evt);
                             }}
                             className={cn(
-                              "px-2 py-1 text-[10px] font-bold rounded truncate cursor-pointer hover:opacity-80 transition-opacity",
+                              "group/evt px-3 py-2 text-[9px] font-black rounded-xl border-2 flex items-center gap-3 cursor-pointer transition-all hover:translate-x-1",
                               bgColor,
-                              isMine && "ring-2 ring-blue-500 ring-inset",
-                              isConflict && "ring-2 ring-red-500 ring-inset"
+                              isMine && "border-blue-500 shadow-[2px_2px_0px_0px_rgba(59,130,246,1)]",
+                              isConflict && "border-red-500 shadow-[2px_2px_0px_0px_rgba(239,68,68,1)]"
                             )}
-                            title={tooltip}
                           >
-                            {selectedRoom === 'all' ? `[${evt.class_name}] ` : ''} 
-                            {format(new Date(evt.start_datetime), 'HH:mm')} {evt.title}
+                            <div className={cn("w-2 h-2 rounded-full shrink-0 border border-slate-900/10", statusDot)} />
+                            <span className="truncate uppercase tracking-tighter">
+                              <span className="opacity-40">{format(new Date(evt.start_datetime), 'HH:mm')}</span>
+                              {" "}{evt.title}
+                            </span>
                           </div>
                         );
                       })}
 
                       {hiddenCount > 0 && (
                         <div 
-                          className="px-2 py-1 text-[10px] font-bold rounded bg-slate-100 text-slate-600 cursor-pointer hover:bg-slate-200 transition-colors text-center"
+                          className="px-3 py-2 text-[9px] font-black rounded-xl bg-slate-900 text-white cursor-pointer hover:bg-black transition-all text-center uppercase tracking-widest mt-auto border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] active:translate-y-0.5 active:shadow-none"
                           onClick={(e) => {
                             e.stopPropagation();
-                            alert(`Hiển thị danh sách ${hiddenCount} event bị ẩn.`);
+                            setView('day');
+                            setCurrentDate(day);
                           }}
                         >
-                          +{hiddenCount} thêm
+                          +{hiddenCount} SỰ KIỆN
                         </div>
                       )}
                     </div>
@@ -894,32 +1000,39 @@ function ScheduleContent() {
                 );
               })}
             </div>
-          </>
+          </div>
         )}
 
         {/* Week View Implementation */}
         {view === 'week' && (
           <div className="flex flex-col flex-1 overflow-hidden">
-            {/* Header */}
-            <div className="flex border-b border-slate-200 bg-slate-50/50 pr-4">
-              <div className="w-16 flex-shrink-0" />
+            {/* Header - Brutalist Premium */}
+            <div className="flex border-b-4 border-slate-900 bg-slate-50 pr-4">
+              <div className="w-24 flex-shrink-0 border-r-4 border-slate-900 bg-slate-900/5" />
               <div className="flex-1 grid grid-cols-7">
                 {daysOfWeek.map((day, i) => (
-                  <div key={day.toString()} className={cn("p-3 text-center border-l border-slate-200", i === 6 && "text-rose-500")}>
-                    <div className="text-xs font-bold uppercase">{format(day, 'E', { locale: vi })}</div>
-                    <div className={cn("text-lg font-black mt-1", isSameDay(day, new Date()) ? "text-indigo-600" : "")}>{format(day, 'dd/MM')}</div>
+                  <div key={day.toString()} className={cn("p-6 text-center border-l-4 border-slate-900", i === 6 && "bg-rose-50/50")}>
+                    <div className={cn("text-[9px] font-black uppercase tracking-[0.3em]", i >= 5 ? "text-rose-500" : "text-slate-400")}>
+                      {format(day, 'EEEE', { locale: vi })}
+                    </div>
+                    <div className={cn(
+                      "text-3xl font-black mt-2 tracking-tighter leading-none", 
+                      isSameDay(day, new Date()) ? "text-indigo-600 underline decoration-[6px] underline-offset-8" : "text-slate-900"
+                    )}>
+                      {format(day, 'dd/MM')}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Scrollable grid */}
-            <div className="flex-1 overflow-y-auto relative custom-scrollbar bg-slate-50" style={{ height: '600px' }}>
+            <div className="flex-1 overflow-y-auto relative custom-scrollbar bg-slate-50" style={{ height: '700px' }}>
               <div className="flex relative" style={{ height: '1440px' }}>
-                {/* Time column */}
-                <div className="w-16 flex-shrink-0 border-r border-slate-200 bg-white relative">
+                {/* Time column - Brutalist Premium */}
+                <div className="w-24 flex-shrink-0 border-r-4 border-slate-900 bg-white relative z-20 shadow-[8px_0_24px_rgba(0,0,0,0.05)]">
                   {Array.from({ length: 24 }).map((_, i) => (
-                    <div key={i} className="absolute w-full text-right pr-2 text-xs font-bold text-slate-400" style={{ top: `${i * 60 - 8}px` }}>
+                    <div key={i} className="absolute w-full text-right pr-4 text-[10px] font-black text-slate-400 uppercase tracking-tighter" style={{ top: `${i * 60 - 8}px` }}>
                       {i.toString().padStart(2, '0')}:00
                     </div>
                   ))}
@@ -951,73 +1064,76 @@ function ScheduleContent() {
                     return (
                       <div 
                         key={day.toString()} 
-                        className={cn("relative border-l border-slate-200 group", isPastDay ? "bg-slate-100/50 cursor-not-allowed" : "cursor-pointer hover:bg-slate-100/30")}
+                        className={cn(
+                          "relative border-l border-slate-200 group transition-colors", 
+                          isPastDay ? "bg-slate-100/30 cursor-not-allowed" : "cursor-pointer hover:bg-indigo-50/20"
+                        )}
                         onClick={() => {
-                          if (user?.role === 'ADMIN') {
-                            openAdminBlock(day);
-                          } else if (user?.role === 'CREATOR') {
-                            if (isPastDay) return;
-                            openQuickBooking(day);
-                          }
+                          if (user?.role === 'ADMIN') openAdminBlock(day);
+                          else if (user?.role === 'CREATOR' && !isPastDay) openQuickBooking(day);
                         }}
-                        title={!isPastDay ? "Click để đặt phòng" : ""}
                       >
-                        {/* Outside operating hours overlay (00:00 - 07:00 and 22:00 - 24:00) */}
-                        <div className="absolute w-full pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wLDhMODswWk04LDhMMTYsMFpNMzIsMEw0MCw4WiIgc3Ryb2tlPSIjZjFmNWY5IiBzdHJva2Utd2lkdGg9IjEiPjwvcGF0aD4KPC9zdmc+')] opacity-50" style={{ top: 0, height: '420px' }} />
-                        <div className="absolute w-full pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wLDhMODswWk04LDhMMTYsMFpNMzIsMEw0MCw4WiIgc3Ryb2tlPSIjZjFmNWY5IiBzdHJva2Utd2lkdGg9IjEiPjwvcGF0aD4KPC9zdmc+')] opacity-50" style={{ top: '1320px', height: '120px' }} />
+                        {/* Outside operating hours overlay */}
+                        <div className="absolute w-full pointer-events-none bg-slate-900/[0.03] pattern-diagonal-lines" style={{ top: 0, height: '420px' }} />
+                        <div className="absolute w-full pointer-events-none bg-slate-900/[0.03] pattern-diagonal-lines" style={{ top: '1320px', height: '120px' }} />
 
                         {/* Events */}
                         {dayEvents.map(evt => {
                           const start = new Date(evt.start_datetime);
                           const end = new Date(evt.end_datetime);
                           
-                          // Cap at midnight for rendering within a single day column
                           const startMins = isSameDay(start, day) ? start.getHours() * 60 + start.getMinutes() : 0;
                           const endMins = isSameDay(end, day) ? end.getHours() * 60 + end.getMinutes() : 1440;
-                          const height = Math.max(endMins - startMins, 20); // Min height 20px
+                          const height = Math.max(endMins - startMins, 32);
 
-                          // Conflict checking (simplified for UI border red)
-                          let isConflict = false;
-                          if (user?.role === 'ADMIN') {
-                            isConflict = dayEvents.some(other => {
-                              if (other.id === evt.id) return false;
-                              if (other.class_id !== evt.class_id) return false;
-                              const s1 = new Date(evt.start_datetime).getTime();
-                              const e1 = new Date(evt.end_datetime).getTime();
-                              const s2 = new Date(other.start_datetime).getTime();
-                              const e2 = new Date(other.end_datetime).getTime();
-                              return s1 < e2 && e1 > s2;
-                            });
+                          let bgColor = 'bg-white text-slate-900 border-slate-300';
+                          let accentColor = 'bg-slate-400';
+                          
+                          if (evt.event_type === 'MANUAL_BLOCK') {
+                            bgColor = 'bg-slate-900 text-white border-slate-900';
+                            accentColor = 'bg-slate-100';
+                          } else if (evt.status === 'APPROVED') {
+                            bgColor = 'bg-emerald-50 text-emerald-900 border-emerald-200';
+                            accentColor = 'bg-emerald-500';
+                          } else if (evt.status === 'PENDING_APPROVAL') {
+                            bgColor = 'bg-orange-50 text-orange-900 border-orange-200';
+                            accentColor = 'bg-orange-500';
+                          } else if (evt.status === 'PENDING_REVIEW' || evt.status === 'IN_REVIEW') {
+                            bgColor = 'bg-indigo-50 text-indigo-900 border-indigo-200';
+                            accentColor = 'bg-indigo-500';
                           }
 
-                          let bgColor = 'bg-slate-100 text-slate-600 border-slate-300';
-                          if (evt.event_type === 'MANUAL_BLOCK') bgColor = 'bg-slate-800 text-white border-slate-900';
-                          else if (evt.status === 'APPROVED') bgColor = 'bg-green-100 text-green-700 border-green-300';
-                          else if (evt.status === 'PENDING_APPROVAL') bgColor = 'bg-orange-100 text-orange-700 border-orange-300';
-                          else if (evt.status === 'PENDING_REVIEW' || evt.status === 'IN_REVIEW') bgColor = 'bg-yellow-100 text-yellow-800 border-yellow-300';
-
                           const isMine = evt.user_id === user?.id;
-                          const tooltip = `Phòng: ${evt.class_name}\nNgười đặt: ${evt.user_name}\nThời gian: ${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}\nTrạng thái: ${evt.status || 'Khóa thủ công'}`;
 
                           return (
                             <div 
                               key={evt.id}
-                              onClick={(e) => handleEventClick(e, evt)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEventClick(e, evt);
+                              }}
                               className={cn(
-                                "absolute left-1 right-1 rounded-md border p-1 text-[10px] leading-tight overflow-hidden cursor-pointer hover:shadow-md transition-all z-10",
+                                "absolute left-1 right-1 rounded-xl border-2 p-2 shadow-sm overflow-hidden cursor-pointer transition-all z-10 hover:shadow-xl hover:scale-[1.02] hover:z-20",
                                 bgColor,
-                                isMine && "ring-2 ring-blue-500",
-                                isConflict && "ring-2 ring-red-500"
+                                isMine && "ring-4 ring-blue-500/30"
                               )}
                               style={{ top: `${startMins}px`, height: `${height}px` }}
-                              title={tooltip}
                             >
-                              <div className="font-bold truncate">{evt.title}</div>
-                              {height >= 40 && (
-                                <>
-                                  <div className="truncate opacity-80">{evt.class_name}</div>
-                                  <div className="truncate opacity-80">{format(start, 'HH:mm')} - {format(end, 'HH:mm')}</div>
-                                </>
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={cn("w-2 h-2 rounded-full shrink-0", accentColor)} />
+                                <div className="font-black text-[10px] truncate uppercase tracking-tight">{evt.title}</div>
+                              </div>
+                              {height >= 60 && (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 text-[9px] font-bold opacity-70">
+                                    <MapPin className="w-3 h-3" />
+                                    <span className="truncate">{evt.class_name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[9px] font-bold opacity-70">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{format(start, 'HH:mm')} - {format(end, 'HH:mm')}</span>
+                                  </div>
+                                </div>
                               )}
                             </div>
                           );
@@ -1025,9 +1141,9 @@ function ScheduleContent() {
 
                         {/* Current time indicator */}
                         {isSameDay(day, new Date()) && (
-                          <div className="absolute w-full z-20 pointer-events-none" style={{ top: `${new Date().getHours() * 60 + new Date().getMinutes()}px` }}>
-                            <div className="absolute w-2 h-2 rounded-full bg-red-500 -left-1 -top-1" />
-                            <div className="w-full border-t-2 border-red-500" />
+                          <div className="absolute w-full z-30 pointer-events-none" style={{ top: `${new Date().getHours() * 60 + new Date().getMinutes()}px` }}>
+                            <div className="absolute w-3 h-3 rounded-full bg-rose-500 -left-1.5 -top-1.5 border-2 border-white shadow-lg" />
+                            <div className="w-full border-t-2 border-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.3)]" />
                           </div>
                         )}
                       </div>
@@ -1042,25 +1158,25 @@ function ScheduleContent() {
         {/* Day View Implementation */}
         {view === 'day' && (
           <div className="flex flex-col flex-1 overflow-hidden">
-            {/* Header */}
-            <div className="flex border-b border-slate-200 bg-slate-50/50">
-              <div className="w-16 flex-shrink-0 z-20 bg-slate-50/50 border-r border-slate-200" /> {/* Sticky corner */}
+            {/* Header - Brutalist Premium */}
+            <div className="flex border-b-4 border-slate-900 bg-slate-50">
+              <div className="w-24 flex-shrink-0 z-20 bg-slate-900/5 border-r-4 border-slate-900" />
               <div className="flex-1 overflow-x-auto custom-scrollbar no-scrollbar-bottom flex">
                 {(selectedRoom === 'all' ? rooms : rooms.filter(r => r.id === selectedRoom)).map((room) => (
                   <div 
                     key={room.id} 
                     className={cn(
-                      "flex-1 min-w-[200px] p-3 text-center border-l border-slate-200 first:border-l-0", 
+                      "flex-1 min-w-[200px] p-6 text-center border-l-4 border-slate-900 first:border-l-0", 
                       selectedRoom === 'all' && rooms.length > 5 && "min-w-[250px]"
                     )}
                   >
-                    <div className="text-sm font-black text-slate-700 truncate">{room.name}</div>
-                    <div className="mt-1">
+                    <div className="text-sm font-black text-slate-900 truncate uppercase tracking-widest">{room.name}</div>
+                    <div className="mt-2">
                       <span className={cn(
-                        "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase",
-                        room.status === 'MAINTENANCE' ? "bg-slate-200 text-slate-600" : "bg-emerald-100 text-emerald-700"
+                        "px-3 py-1 text-[9px] font-black rounded-xl uppercase tracking-widest border-2",
+                        room.status === 'MAINTENANCE' ? "bg-slate-300 text-slate-700 border-slate-900/10" : "bg-emerald-50 text-emerald-700 border-emerald-900/10"
                       )}>
-                        {room.status === 'MAINTENANCE' ? 'Đang bảo trì' : 'Available'}
+                        {room.status === 'MAINTENANCE' ? 'Bảo trì' : 'Available'}
                       </span>
                     </div>
                   </div>
@@ -1069,12 +1185,12 @@ function ScheduleContent() {
             </div>
 
             {/* Scrollable grid */}
-            <div className="flex-1 overflow-auto relative custom-scrollbar bg-slate-50" style={{ height: '600px' }}>
+            <div className="flex-1 overflow-auto relative custom-scrollbar bg-slate-50" style={{ height: '700px' }}>
               <div className="flex relative min-w-max" style={{ height: '1440px' }}>
                 {/* Time column (sticky) */}
-                <div className="w-16 flex-shrink-0 border-r border-slate-200 bg-white sticky left-0 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
+                <div className="w-20 flex-shrink-0 border-r-2 border-slate-900 bg-white sticky left-0 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
                   {Array.from({ length: 24 }).map((_, i) => (
-                    <div key={i} className="absolute w-full text-right pr-2 text-xs font-bold text-slate-400" style={{ top: `${i * 60 - 8}px` }}>
+                    <div key={i} className="absolute w-full text-right pr-3 text-[11px] font-black text-slate-400" style={{ top: `${i * 60 - 8}px` }}>
                       {i.toString().padStart(2, '0')}:00
                     </div>
                   ))}
@@ -1087,9 +1203,7 @@ function ScheduleContent() {
                     {Array.from({ length: 24 }).map((_, i) => (
                       <React.Fragment key={i}>
                         <div className="absolute w-full border-t border-slate-200" style={{ top: `${i * 60}px` }} />
-                        <div className="absolute w-full border-t border-slate-100 border-dashed" style={{ top: `${i * 60 + 15}px` }} />
                         <div className="absolute w-full border-t border-slate-100 border-dashed" style={{ top: `${i * 60 + 30}px` }} />
-                        <div className="absolute w-full border-t border-slate-100 border-dashed" style={{ top: `${i * 60 + 45}px` }} />
                       </React.Fragment>
                     ))}
                   </div>
@@ -1111,22 +1225,18 @@ function ScheduleContent() {
                       <div 
                         key={room.id} 
                         className={cn(
-                          "relative flex-1 min-w-[200px] border-l border-slate-200 group first:border-l-0", 
+                          "relative flex-1 min-w-[200px] border-l border-slate-200 group first:border-l-0 transition-colors", 
                           selectedRoom === 'all' && rooms.length > 5 && "min-w-[250px]",
-                          isPastDay || isMaintenance ? "bg-slate-100/80 cursor-not-allowed" : "cursor-pointer hover:bg-slate-100/30"
+                          isPastDay || isMaintenance ? "bg-slate-100/40 cursor-not-allowed" : "cursor-pointer hover:bg-indigo-50/20"
                         )}
                         onClick={() => {
-                          if (user?.role === 'ADMIN') {
-                            openAdminBlock(currentDate, room.id);
-                          } else if (user?.role === 'CREATOR') {
-                            if (isPastDay || isMaintenance) return;
-                            openQuickBooking(currentDate, room.id);
-                          }
+                          if (user?.role === 'ADMIN') openAdminBlock(currentDate, room.id);
+                          else if (user?.role === 'CREATOR' && !isPastDay && !isMaintenance) openQuickBooking(currentDate, room.id);
                         }}
                       >
                         {isMaintenance && (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                            <span className="text-sm font-black text-slate-400 rotate-90 opacity-30 whitespace-nowrap">ĐANG BẢO TRÌ</span>
+                            <span className="text-[10px] font-black text-slate-400 rotate-90 opacity-20 whitespace-nowrap tracking-[0.5em]">ĐANG BẢO TRÌ</span>
                           </div>
                         )}
 
@@ -1135,35 +1245,52 @@ function ScheduleContent() {
                           const start = new Date(evt.start_datetime);
                           const end = new Date(evt.end_datetime);
                           
-                          // Cap at midnight
                           const startMins = isSameDay(start, currentDate) ? start.getHours() * 60 + start.getMinutes() : 0;
                           const endMins = isSameDay(end, currentDate) ? end.getHours() * 60 + end.getMinutes() : 1440;
-                          const height = Math.max(endMins - startMins, 20);
+                          const height = Math.max(endMins - startMins, 32);
 
-                          let bgColor = 'bg-slate-100 text-slate-600 border-slate-300';
-                          if (evt.event_type === 'MANUAL_BLOCK') bgColor = 'bg-slate-800 text-white border-slate-900';
-                          else if (evt.status === 'APPROVED') bgColor = 'bg-green-100 text-green-700 border-green-300';
-                          else if (evt.status === 'PENDING_APPROVAL') bgColor = 'bg-orange-100 text-orange-700 border-orange-300';
-                          else if (evt.status === 'PENDING_REVIEW' || evt.status === 'IN_REVIEW') bgColor = 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                          let bgColor = 'bg-white text-slate-900 border-slate-300';
+                          let accentColor = 'bg-slate-400';
+                          
+                          if (evt.event_type === 'MANUAL_BLOCK') {
+                            bgColor = 'bg-slate-900 text-white border-slate-900';
+                            accentColor = 'bg-white';
+                          } else if (evt.status === 'APPROVED') {
+                            bgColor = 'bg-emerald-50 text-emerald-900 border-emerald-200';
+                            accentColor = 'bg-emerald-500';
+                          } else if (evt.status === 'PENDING_APPROVAL') {
+                            bgColor = 'bg-orange-50 text-orange-900 border-orange-200';
+                            accentColor = 'bg-orange-500';
+                          } else if (evt.status === 'PENDING_REVIEW' || evt.status === 'IN_REVIEW') {
+                            bgColor = 'bg-indigo-50 text-indigo-900 border-indigo-200';
+                            accentColor = 'bg-indigo-500';
+                          }
 
                           const isMine = evt.user_id === user?.id;
-                          const tooltip = `Người đặt: ${evt.user_name}\nThời gian: ${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}\nTrạng thái: ${evt.status || 'Khóa thủ công'}`;
 
                           return (
                             <div 
                               key={evt.id}
-                              onClick={(e) => handleEventClick(e, evt)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEventClick(e, evt);
+                              }}
                               className={cn(
-                                "absolute left-1 right-1 rounded-md border p-2 text-xs leading-tight overflow-hidden cursor-pointer hover:shadow-md transition-all z-20",
+                                "absolute left-1.5 right-1.5 rounded-xl border-2 p-3 shadow-sm overflow-hidden cursor-pointer transition-all z-20 hover:shadow-xl hover:scale-[1.02] hover:z-30",
                                 bgColor,
-                                isMine && "ring-2 ring-blue-500"
+                                isMine && "ring-4 ring-blue-500/30"
                               )}
                               style={{ top: `${startMins}px`, height: `${height}px` }}
-                              title={tooltip}
                             >
-                              <div className="font-bold truncate">{evt.title}</div>
-                              {height >= 40 && (
-                                <div className="truncate opacity-80 mt-1">{format(start, 'HH:mm')} - {format(end, 'HH:mm')}</div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={cn("w-2.5 h-2.5 rounded-full shrink-0", accentColor)} />
+                                <div className="font-black text-xs truncate uppercase tracking-tighter">{evt.title}</div>
+                              </div>
+                              {height >= 60 && (
+                                <div className="flex items-center gap-2 text-[10px] font-black opacity-60">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>{format(start, 'HH:mm')} - {format(end, 'HH:mm')}</span>
+                                </div>
                               )}
                             </div>
                           );
@@ -1175,9 +1302,9 @@ function ScheduleContent() {
 
                 {/* Current time indicator */}
                 {isSameDay(currentDate, new Date()) && (
-                  <div className="absolute z-40 pointer-events-none" style={{ left: '4rem', right: 0, top: `${new Date().getHours() * 60 + new Date().getMinutes()}px` }}>
-                    <div className="absolute w-2 h-2 rounded-full bg-red-500 -left-1 -top-1" />
-                    <div className="w-full border-t-2 border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
+                  <div className="absolute z-40 pointer-events-none" style={{ left: '5rem', right: 0, top: `${new Date().getHours() * 60 + new Date().getMinutes()}px` }}>
+                    <div className="absolute w-3 h-3 rounded-full bg-rose-500 -left-1.5 -top-1.5 border-2 border-white shadow-lg" />
+                    <div className="w-full border-t-2 border-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]" />
                   </div>
                 )}
               </div>
@@ -1186,122 +1313,114 @@ function ScheduleContent() {
         )}
       </div>
 
-      {/* Booking Detail Popover (18.6.1) */}
+      {/* Booking Detail Popover (Premium Brutalist) */}
       {selectedEvent && (
         <div 
           ref={popoverRef}
-          className="fixed z-[100] w-80 bg-white rounded-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col opacity-0 transition-opacity duration-200"
+          className="fixed z-[100] w-80 bg-white rounded-3xl shadow-[12px_12px_0px_0px_rgba(15,23,42,1)] border-4 border-slate-900 overflow-hidden flex flex-col opacity-0 transition-opacity duration-200"
           style={{ left: 0, top: 0 }}
         >
           {/* Header */}
-          <div className="p-3 border-b border-slate-100 flex items-start gap-2 bg-slate-50/50">
+          <div className="p-5 border-b-2 border-slate-900 flex items-start gap-3 bg-slate-50">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Badge variant="outline" className={cn(
-                  "text-[10px] uppercase font-bold",
-                  selectedEvent.event_type === 'MANUAL_BLOCK' ? "border-slate-800 text-slate-800" :
-                  selectedEvent.status === 'APPROVED' ? "border-green-600 text-green-600" :
-                  selectedEvent.status === 'PENDING_APPROVAL' ? "border-orange-600 text-orange-600" :
-                  "border-yellow-600 text-yellow-600"
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn(
+                  "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider",
+                  selectedEvent.status === 'APPROVED' ? "bg-emerald-500 text-white" :
+                  selectedEvent.status === 'PENDING_APPROVAL' ? "bg-orange-500 text-white" :
+                  selectedEvent.event_type === 'MANUAL_BLOCK' ? "bg-slate-900 text-white" :
+                  "bg-indigo-500 text-white"
                 )}>
-                  {selectedEvent.status || 'Khóa thủ công'}
-                </Badge>
+                  {selectedEvent.status || 'Lịch Khóa'}
+                </span>
               </div>
-              <h4 className="font-bold text-slate-800 line-clamp-2">{selectedEvent.title}</h4>
+              <h4 className="text-xl font-black text-slate-900 leading-tight uppercase tracking-tight line-clamp-2">
+                {selectedEvent.title}
+              </h4>
             </div>
-          </div>
-
-          {/* Content */}
-          <div className="p-4 space-y-3 text-sm text-slate-600">
-            <div className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-slate-700">P.{selectedEvent.class_name}</span>
-              </div>
-            </div>
-            
-            <div className="flex items-start gap-2">
-              <CalendarIcon className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-              <div>
-                <div className="capitalize">{format(new Date(selectedEvent.start_datetime), 'EEEE, dd/MM/yyyy', { locale: vi })}</div>
-                <div className="text-slate-500">
-                  <Clock className="w-3 h-3 inline mr-1" />
-                  {format(new Date(selectedEvent.start_datetime), 'HH:mm')} - {format(new Date(selectedEvent.end_datetime), 'HH:mm')}
-                  {` (${Math.round((new Date(selectedEvent.end_datetime).getTime() - new Date(selectedEvent.start_datetime).getTime()) / 3600000 * 10) / 10} tiếng)`}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <Users className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-              <div>
-                <div className="font-medium text-slate-700">
-                  {user?.role === 'CREATOR' && selectedEvent.user_id !== user?.id 
-                    ? 'Ẩn (Quyền riêng tư)' 
-                    : selectedEvent.user_name}
-                </div>
-                {selectedEvent.attendee_count && (
-                  <div className="text-slate-500 text-xs mt-0.5">
-                    Số lượng: {selectedEvent.attendee_count} người
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {selectedEvent.purpose && (
-              <div className="mt-2 p-2 bg-slate-50 rounded text-xs text-slate-600 italic border border-slate-100">
-                {selectedEvent.purpose.substring(0, 100)}{selectedEvent.purpose.length > 100 ? '...' : ''}
-              </div>
-            )}
-          </div>
-
-          {/* Footer / Actions */}
-          <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
-            <Button 
-              variant="ghost" 
-              size="sm"
+            <button 
               onClick={() => setSelectedEvent(null)}
+              className="p-2 hover:bg-slate-200 rounded-xl transition-colors border-2 border-transparent hover:border-slate-900"
             >
-              Đóng
-            </Button>
-            {selectedEvent.event_type === 'MANUAL_BLOCK' && user?.role === 'ADMIN' && (
-              <>
-                <Button
-                  variant="outline"
-                  className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                  size="sm"
-                  onClick={() => openEditBlock(selectedEvent)}
-                >
-                  ✏️ Sửa
-                </Button>
-                <Button
-                  variant="outline"
-                  className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-                  size="sm"
-                  onClick={() => handleDeleteBlock(selectedEvent.id, selectedEvent.title || 'Block')}
-                >
-                  🗑 Xóa
-                </Button>
-              </>
-            )}
+              <X className="w-5 h-5 text-slate-900 stroke-[3]" />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="p-5 space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-900 rounded-lg shrink-0">
+                  <MapPin className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phòng</div>
+                  <div className="font-black text-slate-900 uppercase">P.{selectedEvent.class_name}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-900 rounded-lg shrink-0">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thời gian</div>
+                  <div className="font-black text-slate-900">
+                    {format(new Date(selectedEvent.start_datetime), 'HH:mm')} – {format(new Date(selectedEvent.end_datetime), 'HH:mm')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-900 rounded-lg shrink-0">
+                  <UserIcon className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Người đặt</div>
+                  <div className="font-black text-slate-900 uppercase">
+                    {user?.role === 'CREATOR' && selectedEvent.user_id !== user?.id 
+                      ? 'ẨN DANH' 
+                      : selectedEvent.user_name || 'HỆ THỐNG'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {selectedEvent.event_type !== 'MANUAL_BLOCK' && (
-              <Button 
-                variant="primary" 
-                size="sm"
-                onClick={() => {
-                  if (user?.role === 'ADMIN' || user?.role === 'APPROVER' || user?.role === 'REVIEWER') {
-                    router.push(`/bookings/${selectedEvent.id}`);
-                  } else {
-                    router.push(`/my-bookings/${selectedEvent.id}`);
-                  }
-                }}
+              <button
+                onClick={() => router.push(
+                  user?.role === 'ADMIN' ? `/admin/bookings/${selectedEvent.id}` :
+                  user?.role === 'APPROVER' ? `/approver/bookings/${selectedEvent.id}` :
+                  user?.role === 'REVIEWER' ? `/reviewer/queue/${selectedEvent.id}` :
+                  `/my-bookings/${selectedEvent.id}`
+                )}
+                className="w-full py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] border-2 border-slate-900 hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] transition-all active:translate-y-0 active:shadow-none flex items-center justify-center gap-2"
               >
-                Xem chi tiết đầy đủ
-              </Button>
+                XEM CHI TIẾT
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {user?.role === 'ADMIN' && selectedEvent.event_type === 'MANUAL_BLOCK' && (
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => openEditBlock(selectedEvent)}
+                  className="flex-1 py-3 bg-white text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:-translate-y-1 transition-all"
+                >
+                  SỬA
+                </button>
+                <button 
+                  onClick={() => setAbDeleteConfirm(selectedEvent as any)}
+                  className="flex-1 py-3 bg-rose-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:-translate-y-1 transition-all"
+                >
+                  XÓA
+                </button>
+              </div>
             )}
           </div>
         </div>
       )}
+
       {/* Quick Create Booking Modal (18.6.2) */}
       <AnimatePresence>
         {quickBookingModalOpen && (
@@ -1637,6 +1756,6 @@ function ScheduleContent() {
           </div>
         )}
       </AnimatePresence>
-    </div>
-  );
+      </div>
+    );
 }

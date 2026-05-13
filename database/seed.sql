@@ -51,7 +51,9 @@ INSERT INTO system_config (key, value, description) VALUES
   ('allow_self_registration',       'true',                'Allow users to register themselves'),
   ('maintenance_mode',              'false',               'System maintenance flag'),
   ('app_name',                      'Class Booking System','Application display name'),
-  ('timezone',                      'Asia/Ho_Chi_Minh',   'System timezone');
+  ('timezone',                      'Asia/Ho_Chi_Minh',   'System timezone'),
+  ('jwt_expires_in',                '15m',                 'Access token lifetime (e.g. 15m, 1h, 8h). Changes take effect within 30 seconds.'),
+  ('refresh_expires_days',          '7',                   'Refresh token lifetime in days');
 
 -- Bookings (various statuses for training/testing)
 INSERT INTO bookings (id, creator_id, class_id, date, slot_id, purpose, course_name, attendee_count, status, reviewer_id, approver_id, submitted_at, approved_at) VALUES

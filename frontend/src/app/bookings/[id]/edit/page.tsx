@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -33,14 +33,16 @@ interface Slot {
   booking_id?: string;
 }
 
-export default function NewBookingPage() {
+export default function EditBookingPage() {
   const router = useRouter();
+  const params = useParams();
+  const id = params?.id as string;
   const { user } = useAuthStore();
   
   const [step, setStep] = React.useState(1);
   const [rooms, setRooms] = React.useState<Room[]>([]);
   const [selectedRoom, setSelectedRoom] = React.useState<string>('');
-  const [date, setDate] = React.useState<string>(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = React.useState<string>('');
   const [slots, setSlots] = React.useState<Slot[]>([]);
   const [selectedSlot, setSelectedSlot] = React.useState<string>('');
   
@@ -49,28 +51,37 @@ export default function NewBookingPage() {
   const [attendeeCount, setAttendeeCount] = React.useState('');
   
   const [loading, setLoading] = React.useState(false);
+  const [initialLoading, setInitialLoading] = React.useState(true);
   const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
   const [generalError, setGeneralError] = React.useState('');
 
   const loadInitialData = React.useCallback(async () => {
     try {
+      setInitialLoading(true);
       const roomsData = await fetchApi('/api/rooms');
       setRooms(roomsData);
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const cloneId = urlParams.get('cloneFrom');
-      if (cloneId) {
-        const data = await fetchApi(`/api/bookings/${cloneId}`);
+      if (id) {
+        const data = await fetchApi(`/api/bookings/${id}`);
+        if (data.status !== 'DRAFT' && data.status !== 'REJECTED' && user?.role !== 'ADMIN') {
+          toast.error('Chỉ có thể chỉnh sửa bản nháp hoặc hồ sơ bị từ chối');
+          router.push(`/bookings/${id}`);
+          return;
+        }
+        
         setSelectedRoom(data.class_id);
+        setDate(data.date.split('T')[0]);
+        setSelectedSlot(data.slot_id.toString());
         setCourseName(data.course_name || '');
         setPurpose(data.purpose || '');
         setAttendeeCount(data.attendee_count?.toString() || '');
-        toast.success('Đã sao chép thông tin từ booking cũ');
       }
     } catch (err: unknown) {
-      console.error(err);
+      setGeneralError(getErrorMessage(err, 'Lỗi khi tải thông tin booking'));
+    } finally {
+      setInitialLoading(false);
     }
-  }, []);
+  }, [id, router, user]);
 
   React.useEffect(() => {
     if (user && user.role !== 'CREATOR' && user.role !== 'ADMIN') {
@@ -83,7 +94,14 @@ export default function NewBookingPage() {
     if (selectedRoom && date) {
       try {
         const res = await fetchApi(`/api/rooms/${selectedRoom}/availability?date=${date}`);
-        setSlots(res.slots);
+        // If editing the current booking, we should include its own slot as available
+        const filteredSlots = res.slots.map((s: Slot) => {
+          if (s.booking_id === id) {
+            return { ...s, booking_id: undefined };
+          }
+          return s;
+        });
+        setSlots(filteredSlots);
       } catch (err: unknown) {
         console.error(err);
         setSlots([]);
@@ -91,7 +109,7 @@ export default function NewBookingPage() {
     } else {
       setSlots([]);
     }
-  }, [selectedRoom, date]);
+  }, [selectedRoom, date, id]);
 
   React.useEffect(() => {
     loadSlots();
@@ -130,12 +148,12 @@ export default function NewBookingPage() {
 
   const prevStep = () => setStep(step - 1);
 
-  const handleSubmit = async (status: 'DRAFT' | 'PENDING_REVIEW') => {
+  const handleSubmit = async (status?: 'PENDING_REVIEW') => {
     setLoading(true);
     setGeneralError('');
     try {
-      const res = await fetchApi('/api/bookings', {
-        method: 'POST',
+      await fetchApi(`/api/bookings/${id}`, {
+        method: 'PUT',
         body: JSON.stringify({
           class_id: selectedRoom,
           date,
@@ -143,18 +161,26 @@ export default function NewBookingPage() {
           course_name: courseName,
           purpose,
           attendee_count: parseInt(attendeeCount, 10),
-          status
+          status: status || undefined // Keep current or set to PENDING_REVIEW
         }),
       });
-      toast.success(status === 'DRAFT' ? 'Đã lưu bản nháp thành công!' : 'Đã gửi yêu cầu thẩm định!');
-      router.push(`/bookings/${res.id}`);
+      toast.success(status === 'PENDING_REVIEW' ? 'Đã gửi yêu cầu thẩm định!' : 'Đã cập nhật bản nháp!');
+      router.push(`/bookings/${id}`);
     } catch (err: unknown) {
-      setGeneralError(getErrorMessage(err, 'Lỗi khi tạo booking'));
-      toast.error('Có lỗi xảy ra khi tạo yêu cầu');
+      setGeneralError(getErrorMessage(err, 'Lỗi khi cập nhật booking'));
+      toast.error('Có lỗi xảy ra khi cập nhật');
     } finally {
       setLoading(false);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const selectedRoomData = rooms.find(r => r.id === selectedRoom);
   const selectedSlotData = slots.find(s => s.slot_id.toString() === selectedSlot);
@@ -178,10 +204,10 @@ export default function NewBookingPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-[0.2em]">
             <Sparkles className="w-3 h-3" />
-            <span>Quy trình 3 bước</span>
+            <span>Chỉnh sửa hồ sơ</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-800">Đặt lớp học mới 🏢</h1>
-          <p className="text-slate-500 font-medium text-sm">Khởi tạo yêu cầu mượn phòng đào tạo giảng dạy.</p>
+          <h1 className="text-4xl font-black tracking-tight text-slate-800">Cập nhật Booking 📝</h1>
+          <p className="text-slate-500 font-medium text-sm">Chỉnh sửa thông tin và gửi lại yêu cầu thẩm định.</p>
         </div>
       </div>
 
@@ -529,8 +555,8 @@ export default function NewBookingPage() {
                         <Info className="w-5 h-5" />
                       </div>
                       <p className="text-[10px] font-bold text-primary uppercase tracking-widest leading-loose">
-                        Bạn có thể chọn <b>Lưu nháp</b> để chỉnh sửa sau,<br />
-                        hoặc <b>Gửi yêu cầu</b> để Reviewer bắt đầu thẩm định.
+                        Kiểm tra kỹ thông tin trước khi cập nhật.<br />
+                        Bạn có thể <b>Lưu thay đổi</b> hoặc <b>Gửi thẩm định</b> ngay.
                       </p>
                     </div>
                   </div>
@@ -549,7 +575,7 @@ export default function NewBookingPage() {
                   </Button>
                   <Button 
                     variant="ghost" 
-                    onClick={() => router.back()} 
+                    onClick={() => router.push(`/bookings/${id}`)} 
                     disabled={loading}
                     className="h-14 px-8 rounded-2xl border-2 border-rose-100 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:bg-rose-50"
                   >
@@ -559,7 +585,7 @@ export default function NewBookingPage() {
                 
                 <div className="flex gap-4 order-1 sm:order-2">
                   <Button 
-                    onClick={() => handleSubmit('DRAFT')} 
+                    onClick={() => handleSubmit()} 
                     disabled={loading}
                     className="h-16 px-10 rounded-[2rem] bg-white border-2 border-slate-900 text-slate-900 shadow-xl shadow-slate-200 font-black text-[11px] uppercase tracking-[0.2em] flex items-center gap-3 hover:bg-slate-50 transition-all active:scale-95"
                   >
@@ -568,7 +594,7 @@ export default function NewBookingPage() {
                     ) : (
                       <>
                         <ShieldCheck className="w-5 h-5" />
-                        <span>Lưu nháp</span>
+                        <span>Lưu thay đổi</span>
                       </>
                     )}
                   </Button>
@@ -582,7 +608,7 @@ export default function NewBookingPage() {
                     ) : (
                       <>
                         <Zap className="w-5 h-5 fill-white" />
-                        <span>Gửi yêu cầu</span>
+                        <span>Gửi thẩm định</span>
                       </>
                     )}
                   </Button>
