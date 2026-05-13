@@ -21,13 +21,31 @@ import { getErrorMessage } from '@/lib/errorTranslations';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-interface Stats {
+// Removed Stats interface since it was unused and conflicting with StatsData
+
+
+// Removed HistoryItem interface since history state was removed
+
+interface Session {
+  id: string;
+  user_agent: string;
+  ip_address: string;
+  created_at: string;
+}
+
+interface ActivityLog {
+  status: string;
+  user_agent: string;
+  ip_address: string;
+  created_at: string;
+}
+
+interface StatsData {
   total: number;
   approved: number;
   rejected: number;
+  processing: number;
 }
-
-// Removed HistoryItem interface since history state was removed
 
 type TabId = 'info' | 'security' | 'history' | 'stats';
 
@@ -42,9 +60,9 @@ export default function ProfilePage() {
     department: user?.department || '',
     username: user?.username || ''
   });
-  const [stats, setStats] = React.useState<any>(null);
-  const [sessions, setSessions] = React.useState<any[]>([]);
-  const [activity, setActivity] = React.useState<any[]>([]);
+  const [stats, setStats] = React.useState<StatsData | null>(null);
+  const [sessions, setSessions] = React.useState<Session[]>([]);
+  const [activity, setActivity] = React.useState<ActivityLog[]>([]);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [activeSessionsLoading, setActiveSessionsLoading] = React.useState(false);
 
@@ -100,7 +118,7 @@ export default function ProfilePage() {
       await fetchApi(`/api/auth/sessions/${sessionId}`, { method: 'DELETE' });
       toast.success('Đã kết thúc phiên làm việc');
       loadSessions();
-    } catch (err) {
+    } catch {
       toast.error('Không thể kết thúc phiên');
     }
   };
@@ -112,7 +130,7 @@ export default function ProfilePage() {
       await fetchApi('/api/auth/logout-all', { method: 'POST' });
       toast.success('Đã đăng xuất khỏi tất cả thiết bị khác');
       loadSessions();
-    } catch (err) {
+    } catch {
       toast.error('Thao tác thất bại');
     } finally {
       setActiveSessionsLoading(false);
@@ -163,7 +181,7 @@ export default function ProfilePage() {
       await new Promise(r => setTimeout(r, 1500)); 
       toast.success('Đã cập nhật ảnh đại diện (Simulated)');
       // In reality, we'd get a new URL back and call updateUser
-    } catch (err) {
+    } catch {
       toast.error('Không thể tải ảnh lên');
     } finally {
       setLoading(false);

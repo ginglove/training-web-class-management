@@ -17,7 +17,7 @@ import {
   EyeOff
 } from 'lucide-react';
 
-export default function ResetPassword() {
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -234,5 +234,13 @@ export default function ResetPassword() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function ResetPassword() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold uppercase tracking-widest text-xs">Đang tải...</div>}>
+      <ResetPasswordContent />
+    </React.Suspense>
   );
 }

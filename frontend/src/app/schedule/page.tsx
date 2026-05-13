@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import { 
-  ChevronLeft, ChevronRight, Clock, Users, MapPin, 
+  ChevronLeft, ChevronRight, Clock, MapPin, 
   Search, PlusCircle, Calendar as CalendarIcon, Download,
   AlertTriangle, ListFilter, ExternalLink, User as UserIcon,
   Lock as LockIcon, Plus, X, ChevronDown
@@ -18,7 +18,6 @@ import {
   startOfDay, endOfDay
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import Link from 'next/link';
 
 interface Room {
   id: string;
@@ -59,7 +58,6 @@ interface TimeSlot {
   booked_by?: string;
 }
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/Badge';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -1410,7 +1408,7 @@ function ScheduleContent() {
                   SỬA
                 </button>
                 <button 
-                  onClick={() => setAbDeleteConfirm(selectedEvent as any)}
+                  onClick={() => handleDeleteBlock(selectedEvent.id, selectedEvent.title || '')}
                   className="flex-1 py-3 bg-rose-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:-translate-y-1 transition-all"
                 >
                   XÓA

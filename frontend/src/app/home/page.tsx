@@ -25,10 +25,7 @@ import {
   Layers,
   MapPin,
   ClipboardCheck,
-  User,
-  Search,
-  Filter,
-  ChevronLeft
+  Search
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -54,6 +51,9 @@ interface StatsData {
   approved?: number;
   rejected?: number;
   draft?: number;
+  pending?: number;
+  pending_review?: number;
+  pending_approval?: number;
   avg_minutes?: number;
   avg_hours?: number;
   counts?: {
@@ -101,10 +101,9 @@ export default function DashboardPage() {
     page: 1,
   });
 
-  const [rooms, setRooms] = React.useState<{id: string, name: string}[]>([]);
-  const [creators, setCreators] = React.useState<{id: string, full_name: string}[]>([]);
+  const [rooms, setRooms] = React.useState<{id: string, name: string, location: string}[]>([]);
 
-  const loadDashboard = async () => {
+  const loadDashboard = React.useCallback(async () => {
     setLoading(true);
     try {
       const query = new URLSearchParams({
@@ -125,7 +124,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   React.useEffect(() => {
     if (user) {
@@ -135,7 +134,7 @@ export default function DashboardPage() {
         fetchApi('/api/rooms').then(res => setRooms(res.data || []));
       }
     }
-  }, [user, filters.page, filters.sort, filters.status, filters.class_id, filters.date_from, filters.date_to]);
+  }, [user, loadDashboard]);
 
   // Debounced search
   React.useEffect(() => {
@@ -143,7 +142,7 @@ export default function DashboardPage() {
       if (user) loadDashboard();
     }, 300);
     return () => clearTimeout(timer);
-  }, [filters.search]);
+  }, [user, loadDashboard]);
 
   const getStatCards = () => {
     const role = user?.role;
@@ -272,8 +271,8 @@ export default function DashboardPage() {
                 <span className="text-[10px] font-bold text-slate-400 italic">Xu hướng 14 ngày gần nhất</span>
               </div>
               <div className="h-40 flex items-end justify-between gap-1.5 px-2">
-                {stats.trend.slice(-14).map((t: TrendData, i: number) => {
-                  const max = Math.max(...(stats.trend || []).map((x: TrendData) => x.count), 1);
+                {(stats?.trend || []).slice(-14).map((t: TrendData, i: number) => {
+                  const max = Math.max(...(stats?.trend || []).map((x: TrendData) => x.count), 1);
                   const height = (t.count / max) * 100;
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">

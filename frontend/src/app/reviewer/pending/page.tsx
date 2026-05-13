@@ -31,6 +31,18 @@ interface Booking {
   claimed_at?: string;
 }
 
+interface StatsData {
+  counts?: {
+    pending?: number;
+    pending_review?: number;
+    in_review?: number;
+    approved_24h?: number;
+    forwarded?: number;
+  };
+  trend?: { day: string; count: number }[];
+  ratio?: Record<string, number>;
+}
+
 // Waiting time helper
 function WaitBadge({ submittedAt }: { submittedAt: string | null }) {
   if (!submittedAt) return <span className="text-slate-300 text-xs font-bold">—</span>;
@@ -59,7 +71,7 @@ export default function ReviewerQueuePage() {
   const [preview, setPreview] = React.useState<Booking | null>(null);
   const [unclaimId, setUnclaimId] = React.useState<string | null>(null);
   const [unclaimProcessing, setUnclaimProcessing] = React.useState(false);
-  const [stats, setStats] = React.useState<any>(null);
+  const [stats, setStats] = React.useState<StatsData | null>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -195,7 +207,7 @@ export default function ReviewerQueuePage() {
           </div>
           <div className="h-40 flex items-end justify-between gap-1">
             {stats?.trend?.map((t: { count: number; day: string }, i: number) => {
-              const max = Math.max(...stats.trend.map((x: { count: number }) => x.count), 1);
+              const max = Math.max(...(stats?.trend || []).map((x: { count: number }) => x.count), 1);
               const height = (t.count / max) * 100;
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
@@ -225,7 +237,7 @@ export default function ReviewerQueuePage() {
               <div className="h-3 bg-slate-50 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-emerald-500 rounded-full" 
-                  style={{ width: `${(stats?.ratio?.approved / ((stats?.ratio?.approved + stats?.ratio?.rejected) || 1)) * 100}%` }} 
+                  style={{ width: `${((stats?.ratio?.approved || 0) / (((stats?.ratio?.approved || 0) + (stats?.ratio?.rejected || 0)) || 1)) * 100}%` }} 
                 />
               </div>
             </div>
@@ -237,13 +249,13 @@ export default function ReviewerQueuePage() {
               <div className="h-3 bg-slate-50 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-rose-500 rounded-full" 
-                  style={{ width: `${(stats?.ratio?.rejected / ((stats?.ratio?.approved + stats?.ratio?.rejected) || 1)) * 100}%` }} 
+                  style={{ width: `${((stats?.ratio?.rejected || 0) / (((stats?.ratio?.approved || 0) + (stats?.ratio?.rejected || 0)) || 1)) * 100}%` }} 
                 />
               </div>
             </div>
             <div className="pt-4 border-t border-slate-50">
               <p className="text-[10px] text-slate-400 font-medium italic">
-                * Tỷ lệ phê duyệt hiện tại: {Math.round((stats?.ratio?.approved / ((stats?.ratio?.approved + stats?.ratio?.rejected) || 1)) * 100)}%
+                * Tỷ lệ phê duyệt hiện tại: {Math.round(((stats?.ratio?.approved || 0) / (((stats?.ratio?.approved || 0) + (stats?.ratio?.rejected || 0)) || 1)) * 100)}%
               </p>
             </div>
           </div>

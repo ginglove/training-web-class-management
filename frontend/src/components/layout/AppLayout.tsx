@@ -2,10 +2,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
-import { toast } from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import {
   LayoutDashboard,
@@ -24,15 +23,9 @@ import {
   ChevronDown,
   Activity,
   Layers,
-  Search,
   Command,
-  ArrowRight,
   CheckCheck,
   Home,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  ArrowUpRight,
 } from 'lucide-react';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { cn } from '@/lib/utils';

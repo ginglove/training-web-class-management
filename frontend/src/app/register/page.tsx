@@ -6,15 +6,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { fetchApi } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { cn } from '@/lib/utils';
 import { 
   ShieldCheck, 
   Lock, 
   Mail, 
-  ArrowRight, 
-  UserPlus,
   User,
   Building,
   CheckCircle2,
@@ -22,7 +19,8 @@ import {
   Eye,
   EyeOff,
   Phone,
-  Command
+  Command,
+  Fingerprint
 } from 'lucide-react';
 
 export default function Register() {
@@ -55,13 +53,6 @@ export default function Register() {
     if (score <= 4) return { label: 'Trung bình🟡', color: 'bg-amber-500', width: '66%' };
     return { label: 'Mạnh🟢', color: 'bg-emerald-500', width: '100%' };
   }, [password]);
-
-  const rules = {
-    length: password.length >= 8 && password.length <= 100,
-    hasUpper: /[A-Z]/.test(password),
-    hasLower: /[a-z]/.test(password),
-    hasNumber: /[0-9]/.test(password),
-  };
 
   const isMatch = password === confirmPassword && confirmPassword !== '';
 

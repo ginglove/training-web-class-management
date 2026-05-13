@@ -6,10 +6,10 @@ import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   ChevronLeft, MapPin, Users, Calendar, Clock, Info, CheckCircle,
-  XCircle, Lock, ShieldCheck, User, ArrowLeft, Zap, Sparkles, AlertTriangle,
+  XCircle, Lock, ShieldCheck, User, ArrowLeft, Zap, Sparkles,
   List
 } from 'lucide-react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';

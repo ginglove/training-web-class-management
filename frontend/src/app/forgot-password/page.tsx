@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { 
-  Lock, 
   Mail, 
   Key,
   ChevronRight,
@@ -20,7 +19,6 @@ import {
 export default function ForgotPassword() {
   const router = useRouter();
   const [email, setEmail] = React.useState('');
-  const [newPassword, setNewPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [success, setSuccess] = React.useState(false);

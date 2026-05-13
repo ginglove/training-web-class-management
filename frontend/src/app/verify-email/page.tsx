@@ -10,11 +10,10 @@ import {
   XCircle,
   Loader2,
   ArrowRight,
-  ShieldCheck,
-  Command
+  ShieldCheck
 } from 'lucide-react';
 
-export default function VerifyEmail() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
@@ -22,7 +21,7 @@ export default function VerifyEmail() {
   const [status, setStatus] = React.useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = React.useState('');
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!token) {
       setStatus('error');
       setMessage('Mã xác thực không hợp lệ hoặc đã hết hạn.');
@@ -119,5 +118,13 @@ export default function VerifyEmail() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function VerifyEmail() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold uppercase tracking-widest text-xs">Đang tải...</div>}>
+      <VerifyEmailContent />
+    </React.Suspense>
   );
 }

@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { getErrorMessage } from '@/lib/errorTranslations';
 import { 
-  ShieldCheck, 
   Lock, 
   Mail, 
   ArrowRight, 
@@ -28,7 +27,7 @@ export default function Home() {
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [capsLockActive, setCapsLockActive] = React.useState(false);
-  const [rememberMe, setRememberMe] = React.useState(false);
+  const [rememberMe] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [generalError, setGeneralError] = React.useState('');
