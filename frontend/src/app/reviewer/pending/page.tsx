@@ -194,8 +194,8 @@ export default function ReviewerQueuePage() {
             <span className="text-[10px] font-bold text-slate-400">Đơn vị: Yêu cầu / Ngày</span>
           </div>
           <div className="h-40 flex items-end justify-between gap-1">
-            {stats?.trend?.map((t: any, i: number) => {
-              const max = Math.max(...stats.trend.map((x: any) => x.count), 1);
+            {stats?.trend?.map((t: { count: number; day: string }, i: number) => {
+              const max = Math.max(...stats.trend.map((x: { count: number }) => x.count), 1);
               const height = (t.count / max) * 100;
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">

@@ -34,9 +34,10 @@ export default function VerifyEmail() {
         const res = await fetchApi(`/api/auth/verify-email?token=${token}`);
         setStatus('success');
         setMessage(res.message || 'Email đã được xác thực thành công!');
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStatus('error');
-        setMessage(err.message || 'Xác thực thất bại. Vui lòng thử lại sau.');
+        const msg = err instanceof Error ? err.message : 'Xác thực thất bại. Vui lòng thử lại sau.';
+        setMessage(msg);
       }
     };
 

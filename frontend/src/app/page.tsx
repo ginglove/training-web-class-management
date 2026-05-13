@@ -73,14 +73,20 @@ export default function Home() {
       } else {
         router.push('/home');
       }
-    } catch (err: any) {
-      if (err.remaining_attempts !== undefined) {
-        setGeneralError(`Tên đăng nhập hoặc mật khẩu không đúng. Bạn còn ${err.remaining_attempts} lần thử.`);
-      } else if (err.error === 'Account is inactive' || err.error === 'Email chưa xác nhận') {
+    } catch (err: unknown) {
+      const errorData = err as { 
+        remaining_attempts?: number; 
+        error?: string; 
+        message?: string; 
+      };
+
+      if (errorData.remaining_attempts !== undefined) {
+        setGeneralError(`Tên đăng nhập hoặc mật khẩu không đúng. Bạn còn ${errorData.remaining_attempts} lần thử.`);
+      } else if (errorData.error === 'Account is inactive' || errorData.error === 'Email chưa xác nhận') {
         setErrorType('warning');
-        setGeneralError(err.message || 'Tài khoản chưa được kích hoạt. Liên hệ Admin.');
-      } else if (err.error === 'Account locked') {
-        setGeneralError(err.message || 'Tài khoản bị khóa. Vui lòng thử lại sau.');
+        setGeneralError(errorData.message || 'Tài khoản chưa được kích hoạt. Liên hệ Admin.');
+      } else if (errorData.error === 'Account locked') {
+        setGeneralError(errorData.message || 'Tài khoản bị khóa. Vui lòng thử lại sau.');
       } else {
         setGeneralError(getErrorMessage(err, 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'));
       }

@@ -50,17 +50,27 @@ export default function ApiDocsPage() {
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js';
     script.onload = () => {
-      (window as any).SwaggerUIBundle({
-        spec: openApiSpec,
-        dom_id: '#swagger-ui',
-        presets: [
-          (window as any).SwaggerUIBundle.presets.apis,
-          (window as any).SwaggerUIBundle.SwaggerUIStandalonePreset,
-        ],
-        layout: 'BaseLayout',
-        deepLinking: true,
-        tryItOutEnabled: true,
-      });
+      const win = window as unknown as {
+        SwaggerUIBundle: {
+          (config: Record<string, unknown>): void;
+          presets: { apis: unknown };
+          SwaggerUIStandalonePreset: unknown;
+        };
+      };
+
+      if (win.SwaggerUIBundle) {
+        win.SwaggerUIBundle({
+          spec: openApiSpec,
+          dom_id: '#swagger-ui',
+          presets: [
+            win.SwaggerUIBundle.presets.apis,
+            win.SwaggerUIBundle.SwaggerUIStandalonePreset,
+          ],
+          layout: 'BaseLayout',
+          deepLinking: true,
+          tryItOutEnabled: true,
+        });
+      }
     };
     document.body.appendChild(script);
 
@@ -101,7 +111,7 @@ Authorization: Bearer <access_token>
   },
   servers: [
     { url: 'https://training-web-class-management.vercel.app', description: 'Production (Vercel)' },
-    { url: 'http://localhost:3000', description: 'Local Development' },
+    { url: 'http://localhost:3001', description: 'Local Development' },
   ],
   components: {
     securitySchemes: {

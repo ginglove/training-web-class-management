@@ -136,7 +136,7 @@ export default function Register() {
         }),
       });
       router.push('/register-success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setGeneralError(getErrorMessage(err, 'Đăng ký thất bại. Vui lòng thử lại.'));
     } finally {
       setLoading(false);

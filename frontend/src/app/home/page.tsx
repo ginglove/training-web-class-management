@@ -43,42 +43,51 @@ interface Booking {
   status: string;
 }
 
-interface Stats {
-  // Creator stats
-  draft?: number;
+interface TrendData {
+  day: string;
+  count: number;
+}
+
+interface StatsData {
+  total?: number;
   processing?: number;
   approved?: number;
-  total?: number;
-
-  // Reviewer/Approver/Admin stats
+  rejected?: number;
+  draft?: number;
+  avg_minutes?: number;
+  avg_hours?: number;
   counts?: {
     pending?: number;
-    forwarded?: number;
-    approved_24h?: number;
-    mine?: number;
-    awaiting_approval?: number;
+    in_review?: number;
+    processed_today?: number;
     approved_today?: number;
     rejected_today?: number;
     pending_review?: number;
     pending_approval?: number;
+    avg_minutes?: number;
+    forwarded?: number;
+    approved_24h?: number;
+    mine?: number;
+    awaiting_approval?: number;
   };
-  trend?: any[];
-  ratio?: any;
-
-  // Legacy/Compatibility
-  pending?: number;
-  in_review?: number;
-  processed_today?: number;
+  trend?: TrendData[];
+  ratio?: Record<string, number>;
   approved_today?: number;
   rejected_today?: number;
 }
 
+interface MetaData {
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const [stats, setStats] = React.useState<any>(null);
+  const [stats, setStats] = React.useState<StatsData | null>(null);
   const [recentBookings, setRecentBookings] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [meta, setMeta] = React.useState<any>({ total: 0, page: 1, limit: 20 });
+  const [meta, setMeta] = React.useState<MetaData>({ total: 0, page: 1, limit: 20 });
   
   // SRS 7.4 — Filter State
   const [filters, setFilters] = React.useState({
@@ -92,14 +101,14 @@ export default function DashboardPage() {
     page: 1,
   });
 
-  const [rooms, setRooms] = React.useState<any[]>([]);
-  const [creators, setCreators] = React.useState<any[]>([]);
+  const [rooms, setRooms] = React.useState<{id: string, name: string}[]>([]);
+  const [creators, setCreators] = React.useState<{id: string, full_name: string}[]>([]);
 
   const loadDashboard = async () => {
     setLoading(true);
     try {
       const query = new URLSearchParams({
-        ...filters as any,
+        ...filters as unknown as Record<string, string>,
         status: filters.status.join(','),
         limit: '20',
       }).toString();
@@ -263,8 +272,8 @@ export default function DashboardPage() {
                 <span className="text-[10px] font-bold text-slate-400 italic">Xu hướng 14 ngày gần nhất</span>
               </div>
               <div className="h-40 flex items-end justify-between gap-1.5 px-2">
-                {stats.trend.slice(-14).map((t: any, i: number) => {
-                  const max = Math.max(...stats.trend.map((x: any) => x.count), 1);
+                {stats.trend.slice(-14).map((t: TrendData, i: number) => {
+                  const max = Math.max(...(stats.trend || []).map((x: TrendData) => x.count), 1);
                   const height = (t.count / max) * 100;
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">

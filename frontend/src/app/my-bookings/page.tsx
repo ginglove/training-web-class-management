@@ -70,9 +70,9 @@ export default function MyBookingsPage() {
       
       // Secondary client-side filters for things not yet in API
       const now = new Date();
-      if (activeTab === 'UPCOMING') data = data.filter((b: any) => new Date(b.date) >= now);
-      if (activeTab === 'PAST') data = data.filter((b: any) => new Date(b.date) < now);
-      if (activeTab === 'PENDING') data = data.filter((b: any) => ['PENDING_REVIEW', 'IN_REVIEW', 'FORWARDED', 'PENDING_APPROVAL'].includes(b.status));
+      if (activeTab === 'UPCOMING') data = data.filter((b: Booking) => new Date(b.date) >= now);
+      if (activeTab === 'PAST') data = data.filter((b: Booking) => new Date(b.date) < now);
+      if (activeTab === 'PENDING') data = data.filter((b: Booking) => ['PENDING_REVIEW', 'IN_REVIEW', 'FORWARDED', 'PENDING_APPROVAL'].includes(b.status));
       
       setBookings(data);
     } catch (err: unknown) {
