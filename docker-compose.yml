@@ -52,6 +52,7 @@ services:
       DB_NAME: class_booking
       DB_USER: postgres
       DB_PASSWORD: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-prod}
       NOTIF_SERVICE_URL: http://notification-service:8003
     depends_on:
       postgres:
@@ -69,6 +70,7 @@ services:
       DB_NAME: class_booking
       DB_USER: postgres
       DB_PASSWORD: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-prod}
     depends_on:
       postgres:
         condition: service_healthy
