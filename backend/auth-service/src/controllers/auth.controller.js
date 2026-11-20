@@ -134,29 +134,19 @@ async function register(req, res, next) {
     // 3. Hash Password (Cost 12)
     const hash = await bcrypt.hash(password, 12);
 
-    // 4. Create User (Status=INACTIVE, email_verified=false)
+    // 4. Create User as already verified and ACTIVE (mock: no email verification step).
+    // Users can log in immediately after registering.
     const { rows } = await pool.query(
       `INSERT INTO users (email, username, password_hash, full_name, role, status, email_verified, department, phone)
-       VALUES ($1, $2, $3, $4, 'CREATOR', 'INACTIVE', FALSE, $5, $6) 
+       VALUES ($1, $2, $3, $4, 'CREATOR', 'ACTIVE', TRUE, $5, $6)
        RETURNING id, email, full_name`,
       [email.toLowerCase(), username.toLowerCase(), hash, full_name, department, phone]
     );
     const user = rows[0];
 
-    // 5. Generate Verification Token (UUID, TTL 24h)
-    const token = uuidv4();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await pool.query(
-      `INSERT INTO verification_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
-      [user.id, token, expiresAt]
-    );
-
-    // 6. Simulate sending email
-    console.log(`📧 [Email Service] Sending verification to ${user.email}: /verify-email?token=${token}`);
-
-    res.status(201).json({ 
+    res.status(201).json({
       status: 'success',
-      message: 'Registration successful. Please verify your email.',
+      message: 'Registration successful. You can now log in.',
       user: { id: user.id, email: user.email }
     });
   } catch (err) { next(err); }

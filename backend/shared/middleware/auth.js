@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_for_dev';
+// Must match the fallback used by backend/auth-service (which signs the tokens),
+// otherwise tokens fail verification whenever JWT_SECRET is not set.
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
 const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
